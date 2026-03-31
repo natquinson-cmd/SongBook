@@ -441,6 +441,46 @@
         }
         .toast.show { opacity: 1; }
 
+        /* ====== VERSION TABS ====== */
+        .version-tabs {
+            display: flex; gap: 4px; align-items: center; flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+        .version-tab {
+            padding: 6px 14px; border-radius: 8px 8px 0 0; border: 1px solid var(--border);
+            border-bottom: none; background: var(--bg-input); color: var(--text-secondary);
+            cursor: pointer; font-size: 0.85em; transition: all 0.2s;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .version-tab.active { background: var(--bg-card); color: var(--text-primary); font-weight: 600; }
+        .version-tab:hover { color: var(--text-primary); }
+        .version-tab .version-remove {
+            width: 16px; height: 16px; border-radius: 50%; border: none;
+            background: transparent; color: var(--text-secondary); cursor: pointer;
+            font-size: 0.8em; display: flex; align-items: center; justify-content: center;
+            transition: 0.2s; padding: 0; line-height: 1;
+        }
+        .version-tab .version-remove:hover { background: #e74c3c; color: white; }
+        .version-add-btn {
+            width: 28px; height: 28px; border-radius: 8px; border: 1px dashed var(--border);
+            background: transparent; color: var(--text-secondary); cursor: pointer;
+            font-size: 1.1em; display: flex; align-items: center; justify-content: center;
+            transition: 0.2s;
+        }
+        .version-add-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+        .version-selector {
+            display: flex; gap: 4px; align-items: center;
+            background: var(--bg-card); border-radius: 10px; padding: 4px;
+        }
+        .version-selector button {
+            padding: 6px 12px; border: none; border-radius: 6px;
+            background: transparent; color: var(--text-secondary);
+            cursor: pointer; font-size: 0.85em; transition: 0.2s;
+        }
+        .version-selector button.active { background: var(--accent); color: white; font-weight: 600; }
+        .version-selector button:hover:not(.active) { color: var(--text-primary); }
+
         /* ====== SCROLLBAR ====== */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -558,9 +598,13 @@
         </div>
 
         <div class="editor-section">
-            <h3>Paroles et accords</h3>
+            <h3>Versions</h3>
             <p style="font-size:0.85em; color:var(--text-secondary); margin-bottom:12px;">
-                Collez le texte avec accords. Formats accept&eacute;s : accords entre [crochets],
+                Ajoutez plusieurs versions d'un m&ecirc;me chant (ex: diff&eacute;rentes &eacute;glises).
+            </p>
+            <div class="version-tabs" id="editorVersionTabs"></div>
+            <p style="font-size:0.85em; color:var(--text-secondary); margin-bottom:8px;">
+                Formats accept&eacute;s : accords entre [crochets],
                 accords sur une ligne seule au-dessus des paroles, ou m&eacute;lang&eacute;s dans le texte.
             </p>
             <div class="form-group">
@@ -598,6 +642,7 @@
             </div>
         </div>
         <div id="partitionMeta" style="color:var(--text-secondary); font-size:0.9em; margin-bottom:16px;"></div>
+        <div id="partitionVersionSelector" class="version-selector" style="margin-bottom:12px; display:none;"></div>
         <div id="partitionContent" class="partition-content"></div>
     </div>
     <div id="wakeLockIndicator" class="wake-lock-indicator" style="display:none;">
@@ -711,6 +756,7 @@ let wakeLock = null;
 let pickedSongIds = new Set();
 let returnToView = 'library'; // where to go back from partition view
 let activeFilter = 'all';
+let currentVersionIndex = 0; // active version in editor and partition view
 
 const TAG_COLORS = {
     'Célébration': 'celebration',
@@ -1069,10 +1115,71 @@ function getEditorTags() {
     return Array.from(document.querySelectorAll('.tag-toggle.active')).map(btn => btn.textContent.trim());
 }
 
+// ====== VERSION HELPERS ======
+let editorVersions = []; // [{name, content}]
+
+function getSongVersions(song) {
+    // Backward compat: old songs have content string, new songs have versions array
+    if (song.versions && song.versions.length > 0) {
+        return song.versions;
+    }
+    return [{ name: 'Par défaut', content: song.content || '' }];
+}
+
+function renderEditorVersionTabs() {
+    const container = document.getElementById('editorVersionTabs');
+    container.innerHTML = editorVersions.map((v, i) => `
+        <div class="version-tab ${i === currentVersionIndex ? 'active' : ''}" onclick="switchEditorVersion(${i})">
+            <span ondblclick="renameVersion(${i}, this)">${escapeHtml(v.name)}</span>
+            ${editorVersions.length > 1 ? `<button class="version-remove" onclick="event.stopPropagation(); removeVersion(${i})" title="Supprimer">&times;</button>` : ''}
+        </div>
+    `).join('') + `<button class="version-add-btn" onclick="addVersion()" title="Ajouter une version">+</button>`;
+}
+
+function switchEditorVersion(idx) {
+    // Save current content before switching
+    editorVersions[currentVersionIndex].content = document.getElementById('songContentInput').value;
+    currentVersionIndex = idx;
+    document.getElementById('songContentInput').value = editorVersions[idx].content;
+    document.getElementById('editorPreview').style.display = 'none';
+    renderEditorVersionTabs();
+}
+
+function addVersion() {
+    // Save current
+    editorVersions[currentVersionIndex].content = document.getElementById('songContentInput').value;
+    const name = prompt('Nom de la version :');
+    if (!name) return;
+    editorVersions.push({ name: name.trim(), content: '' });
+    currentVersionIndex = editorVersions.length - 1;
+    document.getElementById('songContentInput').value = '';
+    document.getElementById('editorPreview').style.display = 'none';
+    renderEditorVersionTabs();
+}
+
+function removeVersion(idx) {
+    if (editorVersions.length <= 1) return;
+    if (!confirm(`Supprimer la version "${editorVersions[idx].name}" ?`)) return;
+    editorVersions.splice(idx, 1);
+    if (currentVersionIndex >= editorVersions.length) currentVersionIndex = editorVersions.length - 1;
+    document.getElementById('songContentInput').value = editorVersions[currentVersionIndex].content;
+    document.getElementById('editorPreview').style.display = 'none';
+    renderEditorVersionTabs();
+}
+
+function renameVersion(idx, el) {
+    const name = prompt('Nouveau nom :', editorVersions[idx].name);
+    if (name && name.trim()) {
+        editorVersions[idx].name = name.trim();
+        renderEditorVersionTabs();
+    }
+}
+
 // ====== EDITOR ======
 function showEditor(songId) {
     switchView('editor');
     currentEditId = songId || null;
+    currentVersionIndex = 0;
 
     if (songId && songs[songId]) {
         const s = songs[songId];
@@ -1082,7 +1189,8 @@ function showEditor(songId) {
         document.getElementById('songKeyInput').value = s.key || '';
         document.getElementById('songCapoInput').value = s.capo || 0;
         setEditorTags(s.tags || []);
-        document.getElementById('songContentInput').value = s.content || '';
+        editorVersions = getSongVersions(s).map(v => ({...v}));
+        document.getElementById('songContentInput').value = editorVersions[0].content;
         document.getElementById('deleteBtn').style.display = 'inline-flex';
     } else {
         document.getElementById('editorTitle').textContent = 'Nouveau chant';
@@ -1091,10 +1199,12 @@ function showEditor(songId) {
         document.getElementById('songKeyInput').value = '';
         document.getElementById('songCapoInput').value = 0;
         setEditorTags([]);
+        editorVersions = [{ name: 'Par défaut', content: '' }];
         document.getElementById('songContentInput').value = '';
         document.getElementById('deleteBtn').style.display = 'none';
     }
     document.getElementById('editorPreview').style.display = 'none';
+    renderEditorVersionTabs();
 }
 
 function editSong(id) {
@@ -1121,13 +1231,18 @@ function saveSong() {
     const title = document.getElementById('songTitleInput').value.trim();
     if (!title) { showToast('Le titre est requis'); return; }
 
-    let content = document.getElementById('songContentInput').value;
-    // Auto-parse if not already ChordPro
-    if (!CHORDPRO_REGEX.test(content)) {
-        content = parseContentToChordPro(content);
+    // Save current version content
+    editorVersions[currentVersionIndex].content = document.getElementById('songContentInput').value;
+
+    // Auto-parse each version
+    for (let v of editorVersions) {
+        if (!CHORDPRO_REGEX.test(v.content)) {
+            v.content = parseContentToChordPro(v.content);
+        }
     }
 
-    const key = document.getElementById('songKeyInput').value || detectKey(content);
+    const firstContent = editorVersions[0].content;
+    const key = document.getElementById('songKeyInput').value || detectKey(firstContent);
     const tags = getEditorTags();
 
     const songData = {
@@ -1135,18 +1250,19 @@ function saveSong() {
         artist: document.getElementById('songArtistInput').value.trim(),
         key: key,
         capo: parseInt(document.getElementById('songCapoInput').value) || 0,
-        content: content,
+        content: firstContent, // backward compat
+        versions: editorVersions,
         tags: tags,
         updatedAt: Date.now()
     };
 
     if (currentEditId) {
         db.ref('songbook/songs/' + currentEditId).update(songData);
-        showToast('Chant mis &agrave; jour');
+        showToast('Chant mis \u00e0 jour');
     } else {
         songData.createdAt = Date.now();
         db.ref('songbook/songs').push(songData);
-        showToast('Chant ajout&eacute;');
+        showToast('Chant ajout\u00e9');
     }
 
     showLibrary();
@@ -1199,8 +1315,9 @@ async function handleFile(file) {
         const title = file.name.replace(/\.[^.]+$/, '');
         document.getElementById('songTitleInput').value = title;
 
-        // Parse and set content
+        // Parse and set content into current version
         const parsed = parseContentToChordPro(text);
+        editorVersions[currentVersionIndex].content = parsed;
         document.getElementById('songContentInput').value = parsed;
 
         // Auto-detect key
@@ -1268,10 +1385,16 @@ function viewSong(id) {
     if (!songs[id]) return;
     currentViewSongId = id;
     currentTranspose = 0;
+    currentVersionIndex = 0;
     returnToView = 'library';
     renderPartition();
     switchView('partition');
     requestWakeLock();
+}
+
+function switchPartitionVersion(idx) {
+    currentVersionIndex = idx;
+    renderPartition();
 }
 
 function renderPartition() {
@@ -1285,6 +1408,24 @@ function renderPartition() {
     if (s.capo) meta += (meta ? ' | ' : '') + 'Capo ' + s.capo;
     document.getElementById('partitionMeta').textContent = meta;
 
+    // Version selector
+    const versions = getSongVersions(s);
+    const versionSelector = document.getElementById('partitionVersionSelector');
+    if (versionSelector) {
+        if (versions.length > 1) {
+            versionSelector.style.display = 'flex';
+            versionSelector.innerHTML = versions.map((v, i) =>
+                `<button class="${i === currentVersionIndex ? 'active' : ''}" onclick="switchPartitionVersion(${i})">${escapeHtml(v.name)}</button>`
+            ).join('');
+        } else {
+            versionSelector.style.display = 'none';
+        }
+    }
+
+    // Get active version content
+    const activeVersion = versions[currentVersionIndex] || versions[0];
+    const content = activeVersion ? activeVersion.content : (s.content || '');
+
     // Current key display
     const origKey = s.key || 'C';
     const origIdx = getNoteIndex(origKey);
@@ -1296,7 +1437,7 @@ function renderPartition() {
         document.getElementById('liveKeyDisplay').textContent = currentKey;
     }
 
-    const html = renderChordPro(s.content || '', currentTranspose, origKey);
+    const html = renderChordPro(content, currentTranspose, origKey);
     document.getElementById('partitionContent').innerHTML = html;
     document.getElementById('partitionContent').style.fontSize = currentFontSize + 'px';
 
