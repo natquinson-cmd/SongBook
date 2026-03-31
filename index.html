@@ -638,6 +638,7 @@
                     <button onclick="changeFontSize(-1)">A-</button>
                     <button onclick="changeFontSize(1)">A+</button>
                 </div>
+                <button class="btn-icon" id="nashvilleToggle" onclick="toggleNashville()" title="Nashville">N</button>
                 <button class="btn-icon" onclick="editCurrentSong()" title="Modifier">&#9998;</button>
             </div>
         </div>
@@ -695,6 +696,7 @@
                     <button onclick="changeFontSize(-1)">A-</button>
                     <button onclick="changeFontSize(1)">A+</button>
                 </div>
+                <button class="btn-icon" id="liveNashvilleToggle" onclick="toggleNashville()" title="Nashville">N</button>
             </div>
         </div>
         <div id="liveContent" class="partition-content"></div>
@@ -757,6 +759,7 @@ let pickedSongIds = new Set();
 let returnToView = 'library'; // where to go back from partition view
 let activeFilter = 'all';
 let currentVersionIndex = 0; // active version in editor and partition view
+let nashvilleMode = false; // toggle Nashville number display
 
 const TAG_COLORS = {
     'Célébration': 'celebration',
@@ -860,10 +863,194 @@ function detectKey(content) {
     return first ? first[1] : 'C';
 }
 
+// ====== NASHVILLE NUMBER SYSTEM ======
+const NASHVILLE_NUMBERS = ['1', '2', '3', '4', '5', '6', '7'];
+// Intervals from root in semitones for major scale
+const MAJOR_SCALE_INTERVALS = [0, 2, 4, 5, 7, 9, 11];
+
+// Nashville regex: matches 1-7 with optional b/# prefix and suffixes
+const NASHVILLE_CHORD_REGEX = /^([#b]?)([1-7])(m|min|maj|dim|aug|sus[24]?|add)?(\d+)?(\/([#b]?)([1-7]))?$/;
+const NASHVILLE_IN_TEXT = /\b([#b]?[1-7](?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[#b]?[1-7])?)\b/g;
+const NASHVILLE_CHORDPRO = /\[([#b]?[1-7](?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[#b]?[1-7])?)\]/g;
+
+function isNashvilleChord(token) {
+    return NASHVILLE_CHORD_REGEX.test(token.trim());
+}
+
+function isNashvilleLine(line) {
+    const trimmed = line.trim();
+    if (!trimmed) return false;
+    const tokens = trimmed.split(/\s+/);
+    if (tokens.length === 0) return false;
+    const nashCount = tokens.filter(t => isNashvilleChord(t)).length;
+    return nashCount / tokens.length >= 0.6 && nashCount >= 1;
+}
+
+function chordToNashville(chord, key) {
+    const match = chord.match(/^([A-G][#b]?)(.*?)(\/([A-G][#b]?)(.*))?$/);
+    if (!match) return chord;
+
+    const root = match[1];
+    const suffix = match[2] || '';
+    const bassNote = match[4];
+    const bassSuffix = match[5] || '';
+
+    const keyIdx = getNoteIndex(key || 'C');
+    const rootIdx = getNoteIndex(root);
+    if (rootIdx === -1) return chord;
+
+    const interval = (rootIdx - keyIdx + 12) % 12;
+    const degree = MAJOR_SCALE_INTERVALS.indexOf(interval);
+
+    let num;
+    if (degree !== -1) {
+        num = NASHVILLE_NUMBERS[degree];
+    } else {
+        // Chromatic note: find closest scale degree and add #/b
+        const flatInterval = (interval - 1 + 12) % 12;
+        const sharpInterval = (interval + 1) % 12;
+        const flatDegree = MAJOR_SCALE_INTERVALS.indexOf(flatInterval);
+        const sharpDegree = MAJOR_SCALE_INTERVALS.indexOf(sharpInterval);
+
+        if (sharpDegree !== -1) {
+            num = 'b' + NASHVILLE_NUMBERS[sharpDegree];
+        } else if (flatDegree !== -1) {
+            num = '#' + NASHVILLE_NUMBERS[flatDegree];
+        } else {
+            return chord; // fallback
+        }
+    }
+
+    let result = num + suffix;
+
+    if (bassNote) {
+        const bassIdx = getNoteIndex(bassNote);
+        if (bassIdx !== -1) {
+            const bassInterval = (bassIdx - keyIdx + 12) % 12;
+            const bassDegree = MAJOR_SCALE_INTERVALS.indexOf(bassInterval);
+            if (bassDegree !== -1) {
+                result += '/' + NASHVILLE_NUMBERS[bassDegree];
+            } else {
+                result += '/' + bassNote + bassSuffix;
+            }
+        }
+    }
+
+    return result;
+}
+
+function nashvilleToChord(nashville, key) {
+    const match = nashville.match(/^([#b]?)([1-7])(.*?)(\/([#b]?)([1-7])(.*))?$/);
+    if (!match) return nashville;
+
+    const accidental = match[1];
+    const degree = parseInt(match[2]) - 1;
+    const suffix = match[3] || '';
+    const bassAccidental = match[5] || '';
+    const bassDegree = match[6] ? parseInt(match[6]) - 1 : null;
+    const bassSuffix = match[7] || '';
+
+    const keyIdx = getNoteIndex(key || 'C');
+    let semitones = MAJOR_SCALE_INTERVALS[degree];
+    if (accidental === '#') semitones += 1;
+    if (accidental === 'b') semitones -= 1;
+
+    const useFlats = FLAT_KEYS.has(key) || FLAT_KEYS.has(key + 'm');
+    const noteSet = useFlats ? NOTES_FLAT : NOTES_SHARP;
+    const noteIdx = (keyIdx + semitones + 12) % 12;
+    let result = noteSet[noteIdx] + suffix;
+
+    if (bassDegree !== null) {
+        let bassSemitones = MAJOR_SCALE_INTERVALS[bassDegree];
+        if (bassAccidental === '#') bassSemitones += 1;
+        if (bassAccidental === 'b') bassSemitones -= 1;
+        const bassIdx = (keyIdx + bassSemitones + 12) % 12;
+        result += '/' + noteSet[bassIdx] + bassSuffix;
+    }
+
+    return result;
+}
+
+function convertContentNashvilleToChords(content, key) {
+    return content.replace(NASHVILLE_CHORDPRO, (match, nash) => {
+        return '[' + nashvilleToChord(nash, key) + ']';
+    });
+}
+
+function renderChordAsNashville(chordStr, key) {
+    return chordToNashville(chordStr, key);
+}
+
+// Detect if content is in Nashville format
+function isNashvilleContent(text) {
+    const lines = text.split('\n');
+    let nashLines = 0;
+    let chordLines = 0;
+    for (const line of lines) {
+        if (isNashvilleLine(line)) nashLines++;
+        if (isChordLine(line)) chordLines++;
+    }
+    // Also check ChordPro Nashville: [1], [4m], etc.
+    const nashBrackets = (text.match(NASHVILLE_CHORDPRO) || []).length;
+    const stdBrackets = (text.match(CHORDPRO_REGEX) || []).length;
+    return (nashLines > chordLines) || (nashBrackets > 0 && stdBrackets === 0);
+}
+
+// Parse Nashville text to standard ChordPro
+function parseNashvilleToChordPro(rawText, key) {
+    const lines = rawText.split('\n');
+    let result = [];
+    let i = 0;
+
+    while (i < lines.length) {
+        const line = lines[i];
+
+        // Already Nashville ChordPro [1], [4m]
+        if (NASHVILLE_CHORDPRO.test(line)) {
+            const converted = line.replace(NASHVILLE_CHORDPRO, (m, nash) => '[' + nashvilleToChord(nash, key) + ']');
+            result.push(converted);
+            i++;
+            continue;
+        }
+
+        // Section markers
+        if (/^\s*\{.*\}\s*$/.test(line) || /^\s*\[(Verse|Chorus|Bridge|Intro|Outro|Couplet|Refrain|Pont|Pre-chorus|Interlude|Solo|Tag|Ending)\s*\d*\]\s*$/i.test(line)) {
+            result.push(line);
+            i++;
+            continue;
+        }
+
+        // Nashville chord line above lyric line
+        if (isNashvilleLine(line) && i + 1 < lines.length && !isNashvilleLine(lines[i + 1]) && !isChordLine(lines[i + 1])) {
+            const chordLine = line.replace(NASHVILLE_IN_TEXT, (m) => nashvilleToChord(m, key));
+            result.push(mergeChordAndLyric(chordLine, lines[i + 1]));
+            i += 2;
+            continue;
+        }
+
+        // Standalone Nashville chord line
+        if (isNashvilleLine(line)) {
+            const converted = line.replace(NASHVILLE_IN_TEXT, (m) => '[' + nashvilleToChord(m, key) + ']');
+            result.push(converted);
+            i++;
+            continue;
+        }
+
+        result.push(line);
+        i++;
+    }
+
+    return result.join('\n');
+}
+
 // ====== CONTENT PARSER ======
 // Converts various formats to ChordPro [Chord]lyric format
 
-function parseContentToChordPro(rawText) {
+function parseContentToChordPro(rawText, key) {
+    // Detect Nashville and convert first
+    if (isNashvilleContent(rawText)) {
+        return parseNashvilleToChordPro(rawText, key || 'C');
+    }
     const lines = rawText.split('\n');
     let result = [];
     let i = 0;
@@ -944,6 +1131,10 @@ function renderChordPro(content, transpose, originalKey) {
     // Apply transposition
     let text = transpose !== 0 ? transposeContent(content, transpose, originalKey) : content;
 
+    // Determine the display key (after transposition)
+    const origIdx = getNoteIndex(originalKey || 'C');
+    const displayKey = NOTES_SHARP[(origIdx + transpose + 12) % 12];
+
     const lines = text.split('\n');
     let html = '';
 
@@ -969,16 +1160,22 @@ function renderChordPro(content, transpose, originalKey) {
                 lyricLine += before;
                 // Pad chord line to match
                 while (chordLine.length < lyricLine.length) chordLine += ' ';
-                chordLine += match[1];
+                // Convert to Nashville if mode active
+                const displayChord = nashvilleMode ? chordToNashville(match[1], displayKey) : match[1];
+                chordLine += displayChord;
                 pos = match.index + match[0].length;
             }
             lyricLine += line.substring(pos);
 
-            // Pad to same length
-            const maxLen = Math.max(chordLine.length, lyricLine.length);
-
-            const chordHtml = chordLine.replace(/([A-G][#b]?(?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[A-G][#b]?)?)/g,
-                '<span class="inline-chord">$1</span>');
+            // Chord highlighting regex depends on mode
+            let chordHtml;
+            if (nashvilleMode) {
+                chordHtml = chordLine.replace(/([#b]?[1-7](?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[#b]?[1-7])?)/g,
+                    '<span class="inline-chord">$1</span>');
+            } else {
+                chordHtml = chordLine.replace(/([A-G][#b]?(?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[A-G][#b]?)?)/g,
+                    '<span class="inline-chord">$1</span>');
+            }
 
             html += `<span class="chord-line">${chordHtml}</span>\n`;
             if (lyricLine.trim()) {
@@ -1213,7 +1410,9 @@ function editSong(id) {
 
 function detectAndPreview() {
     const raw = document.getElementById('songContentInput').value;
-    const parsed = parseContentToChordPro(raw);
+    const keyInput = document.getElementById('songKeyInput');
+    const key = keyInput.value || 'C';
+    const parsed = parseContentToChordPro(raw, key);
     document.getElementById('songContentInput').value = parsed;
 
     const preview = document.getElementById('editorPreview');
@@ -1221,7 +1420,6 @@ function detectAndPreview() {
     preview.innerHTML = renderChordPro(parsed, 0, detectKey(parsed));
 
     // Auto-detect key if not set
-    const keyInput = document.getElementById('songKeyInput');
     if (!keyInput.value) {
         keyInput.value = detectKey(parsed);
     }
@@ -1235,9 +1433,10 @@ function saveSong() {
     editorVersions[currentVersionIndex].content = document.getElementById('songContentInput').value;
 
     // Auto-parse each version
+    const keyForParse = document.getElementById('songKeyInput').value || 'C';
     for (let v of editorVersions) {
         if (!CHORDPRO_REGEX.test(v.content)) {
-            v.content = parseContentToChordPro(v.content);
+            v.content = parseContentToChordPro(v.content, keyForParse);
         }
     }
 
@@ -1316,7 +1515,8 @@ async function handleFile(file) {
         document.getElementById('songTitleInput').value = title;
 
         // Parse and set content into current version
-        const parsed = parseContentToChordPro(text);
+        const importKey = document.getElementById('songKeyInput').value || 'C';
+        const parsed = parseContentToChordPro(text, importKey);
         editorVersions[currentVersionIndex].content = parsed;
         document.getElementById('songContentInput').value = parsed;
 
@@ -1454,6 +1654,18 @@ function transposeUp() {
 
 function transposeDown() {
     currentTranspose = (currentTranspose - 1 + 12) % 12;
+    renderPartition();
+}
+
+function toggleNashville() {
+    nashvilleMode = !nashvilleMode;
+    // Update button styles
+    document.querySelectorAll('#nashvilleToggle, #liveNashvilleToggle').forEach(btn => {
+        if (btn) {
+            btn.style.background = nashvilleMode ? 'var(--accent)' : '';
+            btn.style.color = nashvilleMode ? 'white' : '';
+        }
+    });
     renderPartition();
 }
 
