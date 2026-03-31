@@ -148,9 +148,46 @@
 
         .tags-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
         .tag {
-            background: var(--accent2); color: var(--text-secondary);
-            padding: 2px 8px; border-radius: 4px; font-size: 0.75em;
+            padding: 2px 10px; border-radius: 4px; font-size: 0.75em;
+            font-weight: 600; letter-spacing: 0.3px;
         }
+        .tag-celebration { background: rgba(243,156,18,0.2); color: #f39c12; border: 1px solid rgba(243,156,18,0.3); }
+        .tag-combat { background: rgba(231,76,60,0.2); color: #e74c3c; border: 1px solid rgba(231,76,60,0.3); }
+        .tag-louange { background: rgba(46,204,113,0.2); color: #2ecc71; border: 1px solid rgba(46,204,113,0.3); }
+        .tag-adoration { background: rgba(142,68,230,0.2); color: #8e44e6; border: 1px solid rgba(142,68,230,0.3); }
+
+        .tag-selector { display: flex; gap: 8px; flex-wrap: wrap; }
+        .tag-toggle {
+            padding: 8px 16px; border-radius: 8px; border: 2px solid var(--border);
+            background: transparent; cursor: pointer; font-size: 0.9em;
+            font-weight: 600; transition: all 0.2s; opacity: 0.5;
+        }
+        .tag-toggle.active { opacity: 1; }
+        .tag-toggle[data-tag="C\00e9l\00e9bration"] { color: #f39c12; border-color: rgba(243,156,18,0.3); }
+        .tag-toggle[data-tag="C\00e9l\00e9bration"].active { background: rgba(243,156,18,0.2); border-color: #f39c12; }
+        .tag-toggle[data-tag="Combat"] { color: #e74c3c; border-color: rgba(231,76,60,0.3); }
+        .tag-toggle[data-tag="Combat"].active { background: rgba(231,76,60,0.2); border-color: #e74c3c; }
+        .tag-toggle[data-tag="Louange"] { color: #2ecc71; border-color: rgba(46,204,113,0.3); }
+        .tag-toggle[data-tag="Louange"].active { background: rgba(46,204,113,0.2); border-color: #2ecc71; }
+        .tag-toggle[data-tag="Adoration"] { color: #8e44e6; border-color: rgba(142,68,230,0.3); }
+        .tag-toggle[data-tag="Adoration"].active { background: rgba(142,68,230,0.2); border-color: #8e44e6; }
+
+        .filter-bar { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+        .filter-btn {
+            padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border);
+            background: transparent; cursor: pointer; font-size: 0.82em;
+            font-weight: 600; transition: all 0.2s; color: var(--text-secondary);
+        }
+        .filter-btn.active { color: white; }
+        .filter-btn[data-filter="all"].active { background: var(--accent); border-color: var(--accent); }
+        .filter-btn[data-filter="C\00e9l\00e9bration"] { color: #f39c12; }
+        .filter-btn[data-filter="C\00e9l\00e9bration"].active { background: rgba(243,156,18,0.25); border-color: #f39c12; }
+        .filter-btn[data-filter="Combat"] { color: #e74c3c; }
+        .filter-btn[data-filter="Combat"].active { background: rgba(231,76,60,0.25); border-color: #e74c3c; }
+        .filter-btn[data-filter="Louange"] { color: #2ecc71; }
+        .filter-btn[data-filter="Louange"].active { background: rgba(46,204,113,0.25); border-color: #2ecc71; }
+        .filter-btn[data-filter="Adoration"] { color: #8e44e6; }
+        .filter-btn[data-filter="Adoration"].active { background: rgba(142,68,230,0.25); border-color: #8e44e6; }
 
         .empty-state {
             text-align: center; padding: 60px 20px;
@@ -447,6 +484,13 @@
             <input type="text" id="searchInput" placeholder="Rechercher un chant...">
             <button class="btn btn-primary" onclick="showEditor()">+ Nouveau</button>
         </div>
+        <div class="filter-bar">
+            <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">Tous</button>
+            <button class="filter-btn" data-filter="Célébration" onclick="setFilter('Célébration')">Célébration</button>
+            <button class="filter-btn" data-filter="Combat" onclick="setFilter('Combat')">Combat</button>
+            <button class="filter-btn" data-filter="Louange" onclick="setFilter('Louange')">Louange</button>
+            <button class="filter-btn" data-filter="Adoration" onclick="setFilter('Adoration')">Adoration</button>
+        </div>
         <div id="songList" class="song-list"></div>
         <div id="emptyState" class="empty-state">
             <div class="empty-icon">🎵</div>
@@ -503,8 +547,13 @@
                 </div>
             </div>
             <div class="form-group">
-                <label>Tags (s&eacute;par&eacute;s par des virgules)</label>
-                <input type="text" id="songTagsInput" placeholder="gospel, louange, classique...">
+                <label>Style</label>
+                <div class="tag-selector" id="tagSelector">
+                    <button type="button" class="tag-toggle" data-tag="Célébration" onclick="toggleTag(this)">Célébration</button>
+                    <button type="button" class="tag-toggle" data-tag="Combat" onclick="toggleTag(this)">Combat</button>
+                    <button type="button" class="tag-toggle" data-tag="Louange" onclick="toggleTag(this)">Louange</button>
+                    <button type="button" class="tag-toggle" data-tag="Adoration" onclick="toggleTag(this)">Adoration</button>
+                </div>
             </div>
         </div>
 
@@ -661,6 +710,14 @@ let liveIndex = 0;
 let wakeLock = null;
 let pickedSongIds = new Set();
 let returnToView = 'library'; // where to go back from partition view
+let activeFilter = 'all';
+
+const TAG_COLORS = {
+    'Célébration': 'celebration',
+    'Combat': 'combat',
+    'Louange': 'louange',
+    'Adoration': 'adoration'
+};
 
 // ====== CHORD ENGINE ======
 const NOTES_SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -951,6 +1008,10 @@ function renderSongList() {
     const empty = document.getElementById('emptyState');
 
     const filtered = Object.entries(songs).filter(([id, s]) => {
+        // Filter by tag
+        if (activeFilter !== 'all') {
+            if (!(s.tags || []).includes(activeFilter)) return false;
+        }
         if (!search) return true;
         return (s.title || '').toLowerCase().includes(search) ||
                (s.artist || '').toLowerCase().includes(search) ||
@@ -973,7 +1034,7 @@ function renderSongList() {
             <div class="song-info">
                 <div class="song-title">${escapeHtml(s.title || 'Sans titre')}</div>
                 <div class="song-meta">${escapeHtml(s.artist || '')}${s.capo ? ' | Capo ' + s.capo : ''}</div>
-                ${s.tags && s.tags.length ? `<div class="tags-row">${s.tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
+                ${s.tags && s.tags.length ? `<div class="tags-row">${s.tags.map(t => `<span class="tag tag-${TAG_COLORS[t] || ''}">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
             </div>
             <span class="song-key">${escapeHtml(s.key || '?')}</span>
             <div class="song-actions">
@@ -984,6 +1045,29 @@ function renderSongList() {
 }
 
 document.getElementById('searchInput').addEventListener('input', renderSongList);
+
+function setFilter(filter) {
+    activeFilter = filter;
+    document.querySelectorAll('.filter-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.filter === filter);
+    });
+    renderSongList();
+}
+
+function toggleTag(btn) {
+    btn.classList.toggle('active');
+}
+
+function setEditorTags(tags) {
+    document.querySelectorAll('.tag-toggle').forEach(btn => {
+        const tagName = btn.textContent.trim();
+        btn.classList.toggle('active', tags.includes(tagName));
+    });
+}
+
+function getEditorTags() {
+    return Array.from(document.querySelectorAll('.tag-toggle.active')).map(btn => btn.textContent.trim());
+}
 
 // ====== EDITOR ======
 function showEditor(songId) {
@@ -997,7 +1081,7 @@ function showEditor(songId) {
         document.getElementById('songArtistInput').value = s.artist || '';
         document.getElementById('songKeyInput').value = s.key || '';
         document.getElementById('songCapoInput').value = s.capo || 0;
-        document.getElementById('songTagsInput').value = (s.tags || []).join(', ');
+        setEditorTags(s.tags || []);
         document.getElementById('songContentInput').value = s.content || '';
         document.getElementById('deleteBtn').style.display = 'inline-flex';
     } else {
@@ -1006,7 +1090,7 @@ function showEditor(songId) {
         document.getElementById('songArtistInput').value = '';
         document.getElementById('songKeyInput').value = '';
         document.getElementById('songCapoInput').value = 0;
-        document.getElementById('songTagsInput').value = '';
+        setEditorTags([]);
         document.getElementById('songContentInput').value = '';
         document.getElementById('deleteBtn').style.display = 'none';
     }
@@ -1044,8 +1128,7 @@ function saveSong() {
     }
 
     const key = document.getElementById('songKeyInput').value || detectKey(content);
-    const tags = document.getElementById('songTagsInput').value
-        .split(',').map(t => t.trim()).filter(t => t);
+    const tags = getEditorTags();
 
     const songData = {
         title: title,
