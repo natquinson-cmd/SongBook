@@ -981,6 +981,38 @@ function renderChordAsNashville(chordStr, key) {
     return chordToNashville(chordStr, key);
 }
 
+// Merge Nashville chord line with lyric line using ORIGINAL positions
+function mergeNashvilleAndLyric(nashChordLine, lyricLine, key) {
+    // Extract Nashville chords and their positions from the ORIGINAL line
+    const chordPositions = [];
+    const nashRegex = new RegExp(NASHVILLE_IN_TEXT.source, 'g');
+    let m;
+    while ((m = nashRegex.exec(nashChordLine)) !== null) {
+        chordPositions.push({
+            chord: nashvilleToChord(m[1], key),
+            pos: m.index
+        });
+    }
+
+    if (chordPositions.length === 0) return lyricLine;
+
+    // Build ChordPro result using original positions in the lyric
+    let result = '';
+    let lastPos = 0;
+    const paddedLyric = lyricLine.padEnd(
+        chordPositions[chordPositions.length - 1].pos + 1
+    );
+
+    for (const { chord, pos } of chordPositions) {
+        result += paddedLyric.substring(lastPos, pos);
+        result += '[' + chord + ']';
+        lastPos = pos;
+    }
+    result += paddedLyric.substring(lastPos);
+
+    return result.trimEnd();
+}
+
 // Detect if content is in Nashville format
 function isNashvilleContent(text) {
     const lines = text.split('\n');
@@ -1022,16 +1054,23 @@ function parseNashvilleToChordPro(rawText, key) {
 
         // Nashville chord line above lyric line
         if (isNashvilleLine(line) && i + 1 < lines.length && !isNashvilleLine(lines[i + 1]) && !isChordLine(lines[i + 1])) {
-            const chordLine = line.replace(NASHVILLE_IN_TEXT, (m) => nashvilleToChord(m, key));
-            result.push(mergeChordAndLyric(chordLine, lines[i + 1]));
+            result.push(mergeNashvilleAndLyric(line, lines[i + 1], key));
             i += 2;
             continue;
         }
 
         // Standalone Nashville chord line
         if (isNashvilleLine(line)) {
-            const converted = line.replace(NASHVILLE_IN_TEXT, (m) => '[' + nashvilleToChord(m, key) + ']');
-            result.push(converted);
+            // Extract positions and convert each chord individually
+            const nashRegex = new RegExp(NASHVILLE_IN_TEXT.source, 'g');
+            let m2, parts = [], lastIdx = 0;
+            while ((m2 = nashRegex.exec(line)) !== null) {
+                parts.push(line.substring(lastIdx, m2.index));
+                parts.push('[' + nashvilleToChord(m2[1], key) + ']');
+                lastIdx = m2.index + m2[0].length;
+            }
+            parts.push(line.substring(lastIdx));
+            result.push(parts.join(''));
             i++;
             continue;
         }
@@ -1556,17 +1595,40 @@ async function extractPDF(file) {
     for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
-        const pageText = content.items.map(item => item.str).join('');
-        // Try to preserve line structure
+        // Group items by line (Y position) and preserve X positioning for spaces
         let lastY = null;
+        let lastX = 0;
+        let lastWidth = 0;
         let lineText = '';
+
         for (const item of content.items) {
-            if (lastY !== null && Math.abs(item.transform[5] - lastY) > 5) {
+            const x = item.transform[4];
+            const y = item.transform[5];
+            const fontSize = Math.abs(item.transform[0]) || 12;
+            const spaceWidth = fontSize * 0.3; // approximate space width
+
+            // New line detected
+            if (lastY !== null && Math.abs(y - lastY) > 3) {
                 text += lineText + '\n';
                 lineText = '';
+                lastX = 0;
+                lastWidth = 0;
             }
+
+            // Detect gap between items on the same line = space(s)
+            if (lineText.length > 0 && lastY !== null && Math.abs(y - lastY) <= 3) {
+                const gap = x - (lastX + lastWidth);
+                if (gap > spaceWidth * 0.5) {
+                    // Calculate number of spaces based on gap size
+                    const numSpaces = Math.max(1, Math.round(gap / spaceWidth));
+                    lineText += ' '.repeat(numSpaces);
+                }
+            }
+
             lineText += item.str;
-            lastY = item.transform[5];
+            lastX = x;
+            lastWidth = item.width || (item.str.length * fontSize * 0.6);
+            lastY = y;
         }
         if (lineText) text += lineText + '\n';
         text += '\n';
