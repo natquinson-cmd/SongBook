@@ -1599,16 +1599,20 @@ async function extractPDF(file) {
         let lastY = null;
         let lastX = 0;
         let lastWidth = 0;
+        let lastFontSize = 12;
         let lineText = '';
 
         for (const item of content.items) {
+            if (!item.str) continue;
             const x = item.transform[4];
             const y = item.transform[5];
             const fontSize = Math.abs(item.transform[0]) || 12;
-            const spaceWidth = fontSize * 0.3; // approximate space width
+            const spaceWidth = fontSize * 0.35;
+            // Use font-relative threshold: same line if Y diff < half a line height
+            const lineThreshold = fontSize * 0.5;
 
             // New line detected
-            if (lastY !== null && Math.abs(y - lastY) > 3) {
+            if (lastY !== null && Math.abs(y - lastY) > lineThreshold) {
                 text += lineText + '\n';
                 lineText = '';
                 lastX = 0;
@@ -1616,10 +1620,9 @@ async function extractPDF(file) {
             }
 
             // Detect gap between items on the same line = space(s)
-            if (lineText.length > 0 && lastY !== null && Math.abs(y - lastY) <= 3) {
+            if (lineText.length > 0 && lastY !== null && Math.abs(y - lastY) <= lineThreshold) {
                 const gap = x - (lastX + lastWidth);
                 if (gap > spaceWidth * 0.5) {
-                    // Calculate number of spaces based on gap size
                     const numSpaces = Math.max(1, Math.round(gap / spaceWidth));
                     lineText += ' '.repeat(numSpaces);
                 }
@@ -1628,12 +1631,38 @@ async function extractPDF(file) {
             lineText += item.str;
             lastX = x;
             lastWidth = item.width || (item.str.length * fontSize * 0.6);
+            lastFontSize = fontSize;
             lastY = y;
         }
         if (lineText) text += lineText + '\n';
         text += '\n';
     }
-    return text;
+    return postProcessPDFText(text);
+}
+
+function postProcessPDFText(text) {
+    const lines = text.split('\n');
+    const processed = [];
+    for (let i = 0; i < lines.length; i++) {
+        let line = lines[i];
+        // Fix: dots used as spaces between letters (font encoding issue)
+        // "Je.suis.un" → "Je suis un" but keep "VERSE.1" and "C×2" intact
+        if (/[a-zA-ZÀ-ÿ][\.\·][a-zA-ZÀ-ÿ]/.test(line)) {
+            line = line.replace(/([a-zA-ZÀ-ÿ'\u00C0-\u017E])[\.\·]([a-zA-ZÀ-ÿ'\u00C0-\u017E])/g, '$1 $2');
+        }
+        // Fix: chord root ("A","G"...) on its own line followed by modifier ("m","7","maj"...)
+        // Merge them: "A" + "m" → "Am"
+        if (/^[A-G][#b]?$/.test(line.trim()) && i + 1 < lines.length) {
+            const next = lines[i + 1].trim();
+            if (/^(m|min|maj|dim|aug|sus[24]?|add\d*|\d+)$/.test(next)) {
+                processed.push(line.trimEnd() + next);
+                i++; // skip next line
+                continue;
+            }
+        }
+        processed.push(line);
+    }
+    return processed.join('\n');
 }
 
 async function extractDocx(file) {
