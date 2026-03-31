@@ -1640,23 +1640,42 @@ async function extractPDF(file) {
     return postProcessPDFText(text);
 }
 
+// Nashville chord token regex for post-processing detection
+const NASH_TOKEN_RE = /^[#b]?[1-7](m|min|maj|dim|aug|sus[24]?|add)?(\d+)?(\/[#b]?[1-7])?$/;
+
 function postProcessPDFText(text) {
     const lines = text.split('\n');
     const processed = [];
     for (let i = 0; i < lines.length; i++) {
         let line = lines[i];
+
+        // Fix: Nashville chord lines where dots encode spaces
+        // "1. 5" → "1 5", "6m. 5. 4" → "6m 5 4", ". 5. 4" → "5 4"
+        // Try replacing dots with spaces, accept if result is 70%+ Nashville chords
+        const dotless = line.replace(/\./g, ' ').replace(/\s+/g, ' ').trim();
+        if (dotless && dotless !== line.trim()) {
+            const tokens = dotless.split(' ').filter(t => t.length > 0);
+            if (tokens.length > 0) {
+                const nashCount = tokens.filter(t => NASH_TOKEN_RE.test(t)).length;
+                if (nashCount >= 1 && nashCount / tokens.length >= 0.7) {
+                    line = dotless;
+                }
+            }
+        }
+
         // Fix: dots used as spaces between letters (font encoding issue)
-        // "Je.suis.un" → "Je suis un" but keep "VERSE.1" and "C×2" intact
+        // "Je.suis.un" → "Je suis un" — keeps "VERSE.1" intact (digit after dot)
         if (/[a-zA-ZÀ-ÿ][\.\·][a-zA-ZÀ-ÿ]/.test(line)) {
             line = line.replace(/([a-zA-ZÀ-ÿ'\u00C0-\u017E])[\.\·]([a-zA-ZÀ-ÿ'\u00C0-\u017E])/g, '$1 $2');
         }
+
         // Fix: chord root ("A","G"...) on its own line followed by modifier ("m","7","maj"...)
         // Merge them: "A" + "m" → "Am"
         if (/^[A-G][#b]?$/.test(line.trim()) && i + 1 < lines.length) {
             const next = lines[i + 1].trim();
             if (/^(m|min|maj|dim|aug|sus[24]?|add\d*|\d+)$/.test(next)) {
                 processed.push(line.trimEnd() + next);
-                i++; // skip next line
+                i++;
                 continue;
             }
         }
