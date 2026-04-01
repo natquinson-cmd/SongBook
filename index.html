@@ -313,6 +313,28 @@
             color: var(--chord-color); font-weight: 700;
         }
 
+        .partition-content .chord-pair {
+            display: block;
+        }
+        .partition-content .chord-line {
+            display: block;
+        }
+        .partition-content .lyric-line {
+            display: block;
+        }
+        .partition-content.two-columns {
+            column-count: 2;
+            column-gap: 2.5em;
+            white-space: normal;
+        }
+        .partition-content.two-columns .chord-pair {
+            break-inside: avoid;
+        }
+        #columnToggle.active, #liveColumnToggle.active {
+            background: var(--accent);
+            color: white;
+        }
+
         .wake-lock-indicator {
             position: fixed; bottom: 16px; right: 16px;
             background: var(--success); color: white;
@@ -639,6 +661,7 @@
                     <button onclick="changeFontSize(1)">A+</button>
                 </div>
                 <button class="btn-icon" id="nashvilleToggle" onclick="toggleNashville()" title="Nashville">N</button>
+                <button class="btn-icon" id="columnToggle" onclick="toggleColumns()" title="2 colonnes">⫿</button>
                 <button class="btn-icon" onclick="editCurrentSong()" title="Modifier">&#9998;</button>
             </div>
         </div>
@@ -697,6 +720,7 @@
                     <button onclick="changeFontSize(1)">A+</button>
                 </div>
                 <button class="btn-icon" id="liveNashvilleToggle" onclick="toggleNashville()" title="Nashville">N</button>
+                <button class="btn-icon" id="liveColumnToggle" onclick="toggleColumns()" title="2 colonnes">⫿</button>
             </div>
         </div>
         <div id="liveContent" class="partition-content"></div>
@@ -1216,10 +1240,8 @@ function renderChordPro(content, transpose, originalKey) {
                     '<span class="inline-chord">$1</span>');
             }
 
-            html += `<span class="chord-line">${chordHtml}</span>\n`;
-            if (lyricLine.trim()) {
-                html += `<span class="lyric-line">${escapeHtml(lyricLine)}</span>\n`;
-            }
+            const lyricHtml = lyricLine.trim() ? `<span class="lyric-line">${escapeHtml(lyricLine)}</span>` : '';
+            html += `<div class="chord-pair"><span class="chord-line">${chordHtml}</span>${lyricHtml}</div>\n`;
         } else if (line.trim() === '') {
             html += '\n';
         } else {
@@ -1617,6 +1639,9 @@ async function extractPDF(file) {
         .replace(/([a-zA-ZÀ-ÿ'\u00C0-\u017E])\.\[/g, '$1 [')        // letter.[chord]
         .replace(/\]\.([a-zA-ZÀ-ÿ'\u00C0-\u017E])/g, '] $1')         // [chord].letter
         .replace(/([a-zA-ZÀ-ÿ'\u00C0-\u017E])\.([a-zA-ZÀ-ÿ'\u00C0-\u017E])/g, '$1 $2') // letter.letter
+        .replace(/([a-zA-ZÀ-ÿ'\u00C0-\u017E])\.(\d)/g, '$1 $2')      // letter.digit: VERSE.1 → VERSE 1
+        .replace(/\]\.\s*\?/g, ']?')                                   // [chord].? → [chord]?
+        .replace(/\?\.\s*([A-ZÀ-Ÿ])/g, '? $1')                       // ?.Word → ? Word
         .replace(/,\.([a-zA-ZÀ-ÿ'\u00C0-\u017E\[])/g, ', $1')        // ,.letter or ,.[chord]
         .replace(/,\.\[/g, ', [');                                      // ,.[chord] fallback
 }
@@ -1707,22 +1732,41 @@ function processPDFColumn(items) {
         if (!charXMap.length) return rawLyric;
 
         const chordItems = [...chordGroup.items].sort((a, b) => a.transform[4] - b.transform[4]);
-        const inserts = [];
 
+        // Collect all tokens with their X positions across ALL items
+        const allTokens = [];
         for (const item of chordItems) {
             const itemX = item.transform[4];
             const fs = Math.abs(item.transform[0]) || 12;
             const rawStr = item.str.replace(/\./g, ' ').replace(/\s+/g, ' ').trim();
+            if (!rawStr) continue;
             const itemW = item.width || rawStr.length * fs * 0.6;
             const charW = rawStr.length > 0 ? itemW / rawStr.length : fs * 0.6;
-            const tokens = rawStr.split(' ').filter(t => t);
             let offset = 0;
-            for (const tok of tokens) {
-                if (NASH_TOKEN_RE.test(tok)) {
-                    const tokX = itemX + offset * charW;
-                    inserts.push({ idx: xToCharIdx(charXMap, tokX), chord: tok });
-                }
+            for (const tok of rawStr.split(' ').filter(t => t)) {
+                allTokens.push({ tok, x: itemX + offset * charW });
                 offset += tok.length + 1;
+            }
+        }
+
+        // Merge chord-suffix tokens (m, maj, 7…) with preceding root number
+        // e.g. "6" + "m" → "6m" (they may be separate PDF items)
+        const mergedTokens = [];
+        for (const { tok, x } of allTokens) {
+            const last = mergedTokens[mergedTokens.length - 1];
+            if (last && /^[#b]?[1-7]$/.test(last.tok) &&
+                /^(m|min|maj|dim|aug|sus[24]?|add\d*|\d+)$/.test(tok) &&
+                !/^[1-6]$/.test(tok)) { // don't merge chord roots 1-6 as suffixes
+                last.tok += tok; // keep X of root
+            } else {
+                mergedTokens.push({ tok, x });
+            }
+        }
+
+        const inserts = [];
+        for (const { tok, x } of mergedTokens) {
+            if (NASH_TOKEN_RE.test(tok)) {
+                inserts.push({ idx: xToCharIdx(charXMap, x), chord: tok });
             }
         }
         if (!inserts.length) return rawLyric;
@@ -1919,6 +1963,19 @@ function toggleNashville() {
         }
     });
     renderPartition();
+}
+
+let twoColumns = false;
+function toggleColumns() {
+    twoColumns = !twoColumns;
+    const content = document.getElementById('partitionContent');
+    const liveContent = document.getElementById('liveContent');
+    const btn = document.getElementById('columnToggle');
+    const liveBtn = document.getElementById('liveColumnToggle');
+    if (content) content.classList.toggle('two-columns', twoColumns);
+    if (liveContent) liveContent.classList.toggle('two-columns', twoColumns);
+    if (btn) btn.classList.toggle('active', twoColumns);
+    if (liveBtn) liveBtn.classList.toggle('active', twoColumns);
 }
 
 function changeFontSize(delta) {
