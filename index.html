@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#5b3ff8">
+    <meta name="theme-color" content="#4f00ff">
     <title>SongBook</title>
     <link rel="manifest" href="manifest.json">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&family=Nunito:wght@400;600;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
     <!-- PDF.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -23,26 +23,26 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <style>
         :root {
-            --bg-primary: #eeeaff;
+            --bg-primary: #ddd6fe;
             --bg-secondary: #ffffff;
             --bg-card: #ffffff;
-            --bg-input: #f3f0ff;
-            --text-primary: #18172e;
-            --text-secondary: #5b5c75;
-            --accent: #5b3ff8;
-            --accent-hover: #4629e0;
-            --accent2: #e0d9ff;
-            --chord-color: #f0255a;
-            --success: #16c95e;
-            --warning: #f59e0b;
-            --border: rgba(91,63,248,0.12);
-            --shadow: 0 2px 12px rgba(91,63,248,0.12);
+            --bg-input: #ede9ff;
+            --text-primary: #13122a;
+            --text-secondary: #5a5478;
+            --accent: #4f00ff;
+            --accent-hover: #3d00cc;
+            --accent2: #d4cbff;
+            --chord-color: #ff1744;
+            --success: #00c853;
+            --warning: #ff9100;
+            --border: rgba(79,0,255,0.13);
+            --shadow: 0 2px 14px rgba(79,0,255,0.13);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            font-family: 'Lato', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-family: 'Nunito', 'Lato', -apple-system, BlinkMacSystemFont, sans-serif;
             background: var(--bg-primary);
             color: var(--text-primary);
             min-height: 100vh;
@@ -145,11 +145,15 @@
             display: flex; gap: 4px;
         }
         .song-card .song-actions button {
-            background: transparent; border: none; color: var(--text-secondary);
-            cursor: pointer; padding: 4px 8px; border-radius: 6px;
-            font-size: 1em; transition: 0.2s;
+            background: var(--accent2); border: none; color: var(--accent);
+            cursor: pointer; padding: 6px 10px; border-radius: 8px;
+            font-size: 1em; transition: 0.2s; font-weight: 700;
         }
-        .song-card .song-actions button:hover { color: var(--accent); background: rgba(233,69,96,0.1); }
+        .song-card .song-actions button:hover { background: var(--accent); color: white; }
+        .song-card .song-actions button.btn-delete {
+            background: #ffe5e8; color: #ff1744;
+        }
+        .song-card .song-actions button.btn-delete:hover { background: #ff1744; color: white; }
 
         .tags-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
         .tag {
@@ -221,7 +225,7 @@
             border-color: var(--accent);
         }
         .form-group textarea {
-            font-family: 'Courier New', monospace;
+            font-family: 'Roboto Mono', 'Courier New', monospace;
             line-height: 1.6; resize: vertical; min-height: 300px;
         }
 
@@ -240,7 +244,7 @@
         .preview-section {
             background: var(--bg-input); border-radius: 8px;
             padding: 20px; margin-top: 12px;
-            font-family: 'Courier New', monospace;
+            font-family: 'Roboto Mono', 'Courier New', monospace;
             line-height: 2; white-space: pre-wrap;
             max-height: 400px; overflow-y: auto;
         }
@@ -297,12 +301,12 @@
 
         .partition-content {
             background: #ffffff; border-radius: 14px;
-            padding: 28px 32px; border: 1px solid rgba(91,63,248,0.12);
-            box-shadow: 0 2px 16px rgba(91,63,248,0.08);
-            font-family: 'Courier New', monospace;
-            line-height: 2.2; white-space: pre-wrap;
-            font-size: 16px;
-            color: #1e1e2e;
+            padding: 28px 32px; border: 1px solid rgba(79,0,255,0.12);
+            box-shadow: 0 2px 16px rgba(79,0,255,0.08);
+            font-family: 'Roboto Mono', 'Courier New', monospace;
+            line-height: 2.4; white-space: pre-wrap;
+            font-size: 15px;
+            color: #13122a;
         }
         .partition-content .chord-line {
             color: var(--chord-color); font-weight: 700;
@@ -1437,7 +1441,7 @@ function renderSongList() {
             <span class="song-key">${escapeHtml(s.key || '?')}</span>
             <div class="song-actions">
                 <button onclick="event.stopPropagation(); editSong('${id}')" title="Modifier">&#9998;</button>
-                <button onclick="event.stopPropagation(); deleteSong('${id}', '${escapeHtml(s.title || 'ce chant')}')" title="Supprimer" style="color:#e94560">&#128465;</button>
+                <button class="btn-delete" onclick="event.stopPropagation(); deleteSong('${id}', '${escapeHtml(s.title || 'ce chant')}')" title="Supprimer">&#128465;</button>
             </div>
         </div>
     `).join('');
@@ -1799,13 +1803,12 @@ function detectPDFColumns(items, pageWidth) {
 }
 
 function processPDFColumn(items) {
-    // Find the reference font size (most common = lyric text font)
+    // Reference font size = most common (lyric text)
     const fsSizes = items.map(it => Math.round(Math.abs(it.transform[0]) || 12)).filter(f => f >= 6);
     const fsFreq = {};
     for (const fs of fsSizes) fsFreq[fs] = (fsFreq[fs] || 0) + 1;
     const refFs = fsSizes.length ? parseInt(Object.entries(fsFreq).sort((a, b) => b[1] - a[1])[0][0]) : 12;
-    const refSpW = refFs * 0.55; // normalize ALL lines to lyric character width
-    const leftMarginX = Math.min(...items.map(it => it.transform[4]));
+    const refSpW = refFs * 0.55;
 
     // Group items into lines by Y position
     const lineGroups = [];
@@ -1819,23 +1822,19 @@ function processPDFColumn(items) {
     }
     lineGroups.sort((a, b) => b.y - a.y); // top to bottom
 
-    // Build text from a group, using uniform refSpW for all lines so chord and lyric positions align
+    // Build plain text from a group (for detection)
     function buildGroupText(group) {
         const sorted = [...group.items].sort((a, b) => a.transform[4] - b.transform[4]);
         let result = '', lastX = null, lastW = 0;
+        const leftX = Math.min(...group.items.map(it => it.transform[4]));
         for (const item of sorted) {
             const x = item.transform[4];
             if (lastX === null) {
-                // Leading indent from column left margin (same scale for all lines)
-                const leadingGap = x - leftMarginX;
-                if (leadingGap > refSpW * 0.4) {
-                    result += ' '.repeat(Math.max(0, Math.round(leadingGap / refSpW)));
-                }
+                const lead = x - leftX;
+                if (lead > refSpW * 0.4) result += ' '.repeat(Math.max(0, Math.round(lead / refSpW)));
             } else {
                 const gap = x - (lastX + lastW);
-                if (gap > refSpW * 0.3) {
-                    result += ' '.repeat(Math.max(1, Math.round(gap / refSpW)));
-                }
+                if (gap > refSpW * 0.3) result += ' '.repeat(Math.max(1, Math.round(gap / refSpW)));
             }
             result += item.str;
             lastX = x;
@@ -1844,14 +1843,118 @@ function processPDFColumn(items) {
         return result;
     }
 
-    // Output each line as-is — preserve original chord-line / lyric-line structure
-    let out = '';
-    for (const group of lineGroups) {
-        const rawText = buildGroupText(group);
-        const cleaned = postProcessPDFText(rawText);
-        out += cleaned + '\n';
+    // Merge PDF items that are adjacent (e.g. "G"+"sus4" → "Gsus4")
+    function mergeAdjacentItems(sortedItems) {
+        const merged = [];
+        for (const item of sortedItems) {
+            if (merged.length > 0) {
+                const last = merged[merged.length - 1];
+                const lastRight = last.transform[4] + (last.width > 0 ? last.width : last.str.length * refSpW);
+                const gap = item.transform[4] - lastRight;
+                if (gap < refSpW * 0.6) {
+                    last.str += item.str;
+                    last.width = (last.width || 0) + (item.width || item.str.length * refSpW);
+                    continue;
+                }
+            }
+            merged.push(Object.assign({}, item, { str: item.str }));
+        }
+        return merged;
     }
-    return out;
+
+    // Convert a chord line + lyric line into inline ChordPro [Am]word format
+    // Anchors each chord to the nearest word start by X position — pixel-perfect alignment
+    function toChordPro(chordItems, lyricItems) {
+        const chords = mergeAdjacentItems(
+            [...chordItems].sort((a, b) => a.transform[4] - b.transform[4])
+        );
+        const lyrics = [...lyricItems].sort((a, b) => a.transform[4] - b.transform[4]);
+
+        // Build lyric string + track word-start X positions
+        let lyricStr = '';
+        const wordStarts = []; // {idx, x} — char index and X of each word start
+
+        for (const item of lyrics) {
+            const x = item.transform[4];
+            const charW = item.str.length > 0
+                ? (item.width > 0 ? item.width / item.str.length : refSpW)
+                : refSpW;
+            const base = lyricStr.length;
+            for (let ci = 0; ci < item.str.length; ci++) {
+                const prevChar = ci === 0
+                    ? (lyricStr.length > 0 ? lyricStr[lyricStr.length - 1] : '')
+                    : item.str[ci - 1];
+                const isWordStart =
+                    (base + ci === 0) ||
+                    prevChar === ' ' ||
+                    prevChar === "'" || prevChar === '\u2019'; // apostrophe
+                if (isWordStart && item.str[ci] !== ' ') {
+                    wordStarts.push({ idx: base + ci, x: x + ci * charW });
+                }
+            }
+            lyricStr += item.str;
+        }
+
+        if (!lyricStr.trim()) {
+            // No lyrics: output chord tokens separated by spaces
+            return chords.map(c => c.str).join('  ');
+        }
+        if (wordStarts.length === 0) wordStarts.push({ idx: 0, x: lyrics[0]?.transform[4] || 0 });
+
+        // Assign each chord to the nearest word start
+        const insertions = [];
+        for (const chord of chords) {
+            const cx = chord.transform[4];
+            let best = wordStarts[0], bestDist = Infinity;
+            for (const ws of wordStarts) {
+                const d = Math.abs(ws.x - cx);
+                if (d < bestDist) { bestDist = d; best = ws; }
+            }
+            insertions.push({ idx: best.idx, chord: chord.str });
+        }
+        insertions.sort((a, b) => a.idx - b.idx);
+
+        let result = '', lastIdx = 0;
+        for (const ins of insertions) {
+            result += lyricStr.slice(lastIdx, ins.idx) + '[' + ins.chord + ']';
+            lastIdx = ins.idx;
+        }
+        result += lyricStr.slice(lastIdx);
+        return result.trim();
+    }
+
+    // Process lines: pair chord lines with lyric lines → ChordPro inline
+    const outputLines = [];
+    let i = 0;
+    while (i < lineGroups.length) {
+        const group = lineGroups[i];
+        const lineText = buildGroupText(group);
+        const tokens = lineText.trim().split(/\s+/).filter(t => t);
+        // Check if every token is a chord (standard, French, or Nashville)
+        const isAllChords = tokens.length > 0 &&
+            tokens.every(t => isChord(t) || NASH_TOKEN_RE.test(t));
+
+        if (isAllChords && i + 1 < lineGroups.length) {
+            const nextGroup = lineGroups[i + 1];
+            const yGap = group.y - nextGroup.y;
+            if (yGap < refFs * 3.5) {
+                const nextText = buildGroupText(nextGroup);
+                const nextTokens = nextText.trim().split(/\s+/).filter(t => t);
+                const nextIsChords = nextTokens.length > 0 &&
+                    nextTokens.every(t => isChord(t) || NASH_TOKEN_RE.test(t));
+                if (!nextIsChords) {
+                    outputLines.push(toChordPro(group.items, nextGroup.items));
+                    i += 2;
+                    continue;
+                }
+            }
+        }
+
+        outputLines.push(postProcessPDFText(lineText));
+        i++;
+    }
+
+    return outputLines.join('\n');
 }
 
 // Nashville chord token regex for post-processing detection
