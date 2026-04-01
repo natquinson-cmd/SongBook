@@ -259,8 +259,8 @@
 
         /* ====== PARTITION VIEW ====== */
         .partition-header {
-            display: flex; align-items: center; gap: 12px;
-            margin-bottom: 20px; flex-wrap: wrap;
+            display: flex; align-items: center; gap: 8px;
+            margin-bottom: 10px; flex-wrap: wrap;
         }
         .partition-header .back-btn {
             background: var(--bg-card); border: none; color: var(--text-primary);
@@ -301,41 +301,42 @@
 
         .partition-content {
             background: #ffffff; border-radius: 14px;
-            padding: 28px 32px; border: 1px solid rgba(79,0,255,0.12);
+            padding: 14px 18px; border: 1px solid rgba(79,0,255,0.12);
             box-shadow: 0 2px 16px rgba(79,0,255,0.08);
             font-family: 'Roboto Mono', 'Courier New', monospace;
-            line-height: 2.4; white-space: pre-wrap;
-            font-size: 15px;
+            white-space: pre-wrap;
+            font-size: 14px;
+            line-height: 1.5;
             color: #13122a;
         }
+        .partition-content .chord-pair {
+            display: block;
+            margin-bottom: 2px;
+        }
         .partition-content .chord-line {
+            display: block;
+            line-height: 1.3;
+            font-size: 0.9em;
             color: var(--chord-color); font-weight: 700;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.3px;
+            margin-top: 6px;
         }
         .partition-content .lyric-line {
+            display: block;
+            line-height: 1.5;
             color: var(--text-primary);
         }
         .partition-content .section-marker {
             color: var(--warning); font-weight: 700;
-            font-style: italic; margin-top: 8px;
-            display: block;
+            font-style: italic; margin-top: 6px;
+            display: block; line-height: 1.6;
         }
         .partition-content .inline-chord {
             color: var(--chord-color); font-weight: 700;
         }
-
-        .partition-content .chord-pair {
-            display: block;
-        }
-        .partition-content .chord-line {
-            display: block;
-        }
-        .partition-content .lyric-line {
-            display: block;
-        }
         .partition-content.two-columns {
             column-count: 2;
-            column-gap: 2.5em;
+            column-gap: 2em;
             white-space: normal;
         }
         .partition-content.two-columns .chord-pair {
