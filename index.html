@@ -575,7 +575,7 @@
             <div class="upload-icon">📄</div>
             <p>Glissez un fichier Word ou PDF ici, ou cliquez pour s&eacute;lectionner</p>
             <p style="font-size:0.8em; margin-top:4px">Formats : .docx, .pdf, .txt</p>
-            <input type="file" id="fileInput" accept=".docx,.pdf,.txt">
+            <input type="file" id="fileInput" accept=".docx,.pdf,.txt,.onsong,.cho,.chopro,.chordpro">
         </div>
 
         <div class="editor-section">
@@ -1209,13 +1209,14 @@ function renderChordPro(content, transpose, originalKey) {
             continue;
         }
 
-        // Lines with ChordPro chords
-        if (CHORDPRO_REGEX.test(line)) {
+        // Lines with ChordPro chords (standard [Am] or Nashville [6m])
+        const COMBINED_CP = /\[([A-G][#b]?(?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[A-G][#b]?)?|[#b]?[1-7](?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[#b]?[1-7])?)\]/g;
+        if (CHORDPRO_REGEX.test(line) || COMBINED_CP.test(line)) {
             // Build two lines: chord line and lyric line
             let chordLine = '';
             let lyricLine = '';
             let pos = 0;
-            const regex = new RegExp(CHORDPRO_REGEX.source, 'g');
+            const regex = /\[([A-G][#b]?(?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[A-G][#b]?)?|[#b]?[1-7](?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[#b]?[1-7])?)\]/g;
             let match;
 
             while ((match = regex.exec(line)) !== null) {
@@ -1559,21 +1560,37 @@ async function handleFile(file) {
     uploadZone.innerHTML = '<div class="loading-spinner"></div><p>Extraction du texte...</p>';
 
     try {
+        let importedTitle = null, importedKey = null, importedArtist = null;
         if (ext === 'txt') {
             text = await file.text();
         } else if (ext === 'pdf') {
             text = await extractPDF(file);
         } else if (ext === 'docx') {
             text = await extractDocx(file);
+        } else if (ext === 'onsong') {
+            const raw = await file.text();
+            const parsed = parseOnSong(raw);
+            text = parsed.content;
+            importedTitle = parsed.title;
+            importedKey = parsed.key;
+            importedArtist = parsed.artist;
+        } else if (['cho', 'chopro', 'chordpro'].includes(ext)) {
+            const raw = await file.text();
+            const parsed = parseChordProFile(raw);
+            text = parsed.content;
+            importedTitle = parsed.title;
+            importedKey = parsed.key;
+            importedArtist = parsed.artist;
         } else {
             showToast('Format non support&eacute;');
             resetUploadZone();
             return;
         }
 
-        // Set title from filename
-        const title = file.name.replace(/\.[^.]+$/, '');
+        // Set title from filename or parsed metadata
+        const title = importedTitle || file.name.replace(/\.[^.]+$/, '');
         document.getElementById('songTitleInput').value = title;
+        if (importedArtist) document.getElementById('songArtistInput') && (document.getElementById('songArtistInput').value = importedArtist);
 
         // Parse and set content into current version
         const importKey = document.getElementById('songKeyInput').value || 'C';
@@ -1581,8 +1598,8 @@ async function handleFile(file) {
         editorVersions[currentVersionIndex].content = parsed;
         document.getElementById('songContentInput').value = parsed;
 
-        // Auto-detect key
-        const key = detectKey(parsed);
+        // Auto-detect key (use imported metadata first)
+        const key = importedKey || detectKey(parsed);
         if (key) document.getElementById('songKeyInput').value = key;
 
         // Show preview
@@ -1601,8 +1618,8 @@ function resetUploadZone() {
     uploadZone.innerHTML = `
         <div class="upload-icon">📄</div>
         <p>Glissez un fichier Word ou PDF ici, ou cliquez pour s&eacute;lectionner</p>
-        <p style="font-size:0.8em; margin-top:4px">Formats : .docx, .pdf, .txt</p>
-        <input type="file" id="fileInput" accept=".docx,.pdf,.txt">
+        <p style="font-size:0.8em; margin-top:4px">Formats : .docx, .pdf, .txt, .onsong, .cho, .chopro, .chordpro</p>
+        <input type="file" id="fileInput" accept=".docx,.pdf,.txt,.onsong,.cho,.chopro,.chordpro">
     `;
     const newInput = document.getElementById('fileInput');
     newInput.addEventListener('change', () => {
@@ -1801,6 +1818,37 @@ function processPDFColumn(items) {
         return /^(VERSE|CHORUS|BRIDGE|TAG|INSTRUMENTAL|INTRO|OUTRO|PRE.?CHORUS|VERSET|REFRAIN|PONT|CODA)\b/i.test(line.trim());
     }
 
+    // Split a mixed line group into {chordGroup, lyricGroup} when Nash chords
+    // share the same Y as lyrics (inline chords: chord items at left, lyric at right)
+    function splitInlineChords(group) {
+        const sorted = [...group.items].sort((a, b) => a.transform[4] - b.transform[4]);
+        let splitIdx = -1;
+        for (let k = 0; k < sorted.length; k++) {
+            const tok = sorted[k].str.replace(/\./g, '').trim();
+            if (!tok) continue;
+            if (!NASH_TOKEN_RE.test(tok) && k > 0) {
+                // Check that preceding items were all Nashville
+                const preceding = sorted.slice(0, k).filter(it => it.str.trim());
+                const allNash = preceding.every(it => {
+                    const t = it.str.replace(/\./g, '').trim();
+                    return !t || NASH_TOKEN_RE.test(t); // dot-only spacer items are ok
+                });
+                if (allNash && preceding.length > 0) {
+                    // Require a significant X gap before the lyric starts
+                    const lastChordX = sorted[k - 1].transform[4] + (sorted[k - 1].width || 10);
+                    const lyricStartX = sorted[k].transform[4];
+                    if (lyricStartX - lastChordX > 15) { splitIdx = k; }
+                }
+                break;
+            }
+        }
+        if (splitIdx < 0) return null;
+        return {
+            chordGroup: { y: group.y, items: sorted.slice(0, splitIdx) },
+            lyricGroup: { y: group.y, items: sorted.slice(splitIdx) }
+        };
+    }
+
     // Process line groups
     let out = '';
     let i = 0;
@@ -1809,6 +1857,7 @@ function processPDFColumn(items) {
         const { text: rawText } = buildGroupText(group);
         const cleaned = postProcessPDFText(rawText);
 
+        // Case 1: pure Nash chord line followed by lyric line
         if (i + 1 < lineGroups.length) {
             const nextGroup = lineGroups[i + 1];
             const { text: nextRaw } = buildGroupText(nextGroup);
@@ -1820,6 +1869,17 @@ function processPDFColumn(items) {
                 continue;
             }
         }
+
+        // Case 2: inline chords — Nash chord items at left, lyric items at right, same Y
+        if (!isNashvilleLine(cleaned) && !isSectionHeader(cleaned)) {
+            const split = splitInlineChords(group);
+            if (split) {
+                out += mergeByX(split.chordGroup, split.lyricGroup) + '\n';
+                i++;
+                continue;
+            }
+        }
+
         out += cleaned + '\n';
         i++;
     }
@@ -1874,6 +1934,84 @@ async function extractDocx(file) {
     const arrayBuffer = await file.arrayBuffer();
     const result = await mammoth.extractRawText({ arrayBuffer });
     return result.value;
+}
+
+// ====== ONSONG PARSER ======
+// OnSong format: title on line 1, artist on line 2, then metadata (Key: G, Tempo: 120),
+// then sections with [Chord]lyric content
+function parseOnSong(raw) {
+    const lines = raw.split('\n');
+    let title = '', artist = '', key = '', content = '';
+    let headerDone = false;
+    const contentLines = [];
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmed = line.trim();
+
+        if (!headerDone) {
+            // First non-empty line = title
+            if (!title && trimmed && !trimmed.startsWith('{')) {
+                title = trimmed; continue;
+            }
+            // Second non-empty line = artist (if not a metadata key)
+            if (title && !artist && trimmed && !/^[A-Za-z]+\s*:/.test(trimmed) && !trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+                artist = trimmed; continue;
+            }
+            // Metadata lines: Key: G, Tempo: 120, etc.
+            const metaMatch = trimmed.match(/^([A-Za-z]+)\s*:\s*(.+)$/);
+            if (metaMatch) {
+                const k = metaMatch[1].toLowerCase(), v = metaMatch[2].trim();
+                if (k === 'key') key = v.split(' ')[0]; // "G" or "G Minor" → take first token
+                continue;
+            }
+            // ChordPro directives {title:...} {key:...}
+            const dirMatch = trimmed.match(/^\{([a-z_]+):\s*(.+)\}$/i);
+            if (dirMatch) {
+                const dk = dirMatch[1].toLowerCase(), dv = dirMatch[2].trim();
+                if (dk === 'title' || dk === 't') title = dv;
+                else if (dk === 'key') key = dv;
+                else if (dk === 'artist' || dk === 'subtitle' || dk === 'st') artist = dv;
+                continue;
+            }
+            // Section header or blank line = end of header
+            if (trimmed.startsWith('[') || trimmed === '') headerDone = true;
+        }
+        contentLines.push(line);
+    }
+    content = contentLines.join('\n').trim();
+    return { title, artist, key, content };
+}
+
+// ====== CHORDPRO FILE PARSER ======
+// ChordPro format: directives in {braces}, chords in [brackets]
+function parseChordProFile(raw) {
+    const lines = raw.split('\n');
+    let title = '', artist = '', key = '';
+    const contentLines = [];
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+        // Directives
+        const dirMatch = trimmed.match(/^\{([a-z_]+):\s*(.+)\}$/i) ||
+                         trimmed.match(/^\{([a-z_]+)\}$/i);
+        if (dirMatch && dirMatch[2] !== undefined) {
+            const dk = dirMatch[1].toLowerCase(), dv = dirMatch[2].trim();
+            if (dk === 'title' || dk === 't') { title = dv; continue; }
+            if (dk === 'subtitle' || dk === 'st' || dk === 'artist') { artist = dv; continue; }
+            if (dk === 'key') { key = dv; continue; }
+            if (dk === 'comment' || dk === 'c' || dk === 'ci' || dk === 'cb') {
+                contentLines.push('[' + dv + ']'); continue; // convert comment to section marker
+            }
+            continue; // ignore other directives (tempo, capo, etc.)
+        }
+        if (dirMatch && dirMatch[2] === undefined) continue; // bare directive like {soc}
+        // Column directives
+        if (/^\{(soc|eoc|sov|eov|sob|eob|start_of_|end_of_)\b/.test(trimmed)) continue;
+        contentLines.push(line);
+    }
+    const content = contentLines.join('\n').trim();
+    return { title, artist, key, content };
 }
 
 // ====== PARTITION VIEW ======
