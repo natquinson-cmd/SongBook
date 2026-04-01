@@ -160,10 +160,10 @@
             padding: 2px 10px; border-radius: 4px; font-size: 0.75em;
             font-weight: 600; letter-spacing: 0.3px;
         }
-        .tag-celebration { background: #fef9c3; color: #b45309; border: 1px solid #fde68a; }
-        .tag-combat { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
-        .tag-louange { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
-        .tag-adoration { background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; }
+        .tag-celebration { background: #ffd600; color: #5c3800; border: none; }
+        .tag-combat { background: #ff1744; color: #fff; border: none; }
+        .tag-louange { background: #00c853; color: #fff; border: none; }
+        .tag-adoration { background: #651fff; color: #fff; border: none; }
 
         .tag-selector { display: flex; gap: 8px; flex-wrap: wrap; }
         .tag-toggle {
@@ -172,14 +172,14 @@
             font-weight: 600; transition: all 0.2s; opacity: 0.5;
         }
         .tag-toggle.active { opacity: 1; }
-        .tag-toggle[data-tag="Célébration"] { color: #b45309; border-color: #fde68a; }
-        .tag-toggle[data-tag="Célébration"].active { background: #fef9c3; border-color: #b45309; }
-        .tag-toggle[data-tag="Combat"] { color: #b91c1c; border-color: #fca5a5; }
-        .tag-toggle[data-tag="Combat"].active { background: #fee2e2; border-color: #b91c1c; }
-        .tag-toggle[data-tag="Louange"] { color: #166534; border-color: #86efac; }
-        .tag-toggle[data-tag="Louange"].active { background: #dcfce7; border-color: #166534; }
-        .tag-toggle[data-tag="Adoration"] { color: #6d28d9; border-color: #c4b5fd; }
-        .tag-toggle[data-tag="Adoration"].active { background: #ede9fe; border-color: #6d28d9; }
+        .tag-toggle[data-tag="Célébration"] { color: #e65100; border-color: #ffd600; }
+        .tag-toggle[data-tag="Célébration"].active { background: #ffd600; border-color: #ffd600; color: #5c3800; }
+        .tag-toggle[data-tag="Combat"] { color: #ff1744; border-color: #ff1744; }
+        .tag-toggle[data-tag="Combat"].active { background: #ff1744; border-color: #ff1744; color: white; }
+        .tag-toggle[data-tag="Louange"] { color: #00c853; border-color: #00c853; }
+        .tag-toggle[data-tag="Louange"].active { background: #00c853; border-color: #00c853; color: white; }
+        .tag-toggle[data-tag="Adoration"] { color: #651fff; border-color: #651fff; }
+        .tag-toggle[data-tag="Adoration"].active { background: #651fff; border-color: #651fff; color: white; }
 
         .filter-bar { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
         .filter-btn {
@@ -189,14 +189,14 @@
         }
         .filter-btn.active { color: white; }
         .filter-btn[data-filter="all"].active { background: var(--accent); border-color: var(--accent); color: white; }
-        .filter-btn[data-filter="Célébration"] { color: #b45309; }
-        .filter-btn[data-filter="Célébration"].active { background: #fef9c3; border-color: #fde68a; color: #b45309; }
-        .filter-btn[data-filter="Combat"] { color: #b91c1c; }
-        .filter-btn[data-filter="Combat"].active { background: #fee2e2; border-color: #fca5a5; color: #b91c1c; }
-        .filter-btn[data-filter="Louange"] { color: #166534; }
-        .filter-btn[data-filter="Louange"].active { background: #dcfce7; border-color: #86efac; color: #166534; }
-        .filter-btn[data-filter="Adoration"] { color: #6d28d9; }
-        .filter-btn[data-filter="Adoration"].active { background: #ede9fe; border-color: #c4b5fd; color: #6d28d9; }
+        .filter-btn[data-filter="Célébration"] { color: #e65100; border-color: #ffd600; }
+        .filter-btn[data-filter="Célébration"].active { background: #ffd600; border-color: #ffd600; color: #5c3800; }
+        .filter-btn[data-filter="Combat"] { color: #ff1744; border-color: #ff1744; }
+        .filter-btn[data-filter="Combat"].active { background: #ff1744; border-color: #ff1744; color: white; }
+        .filter-btn[data-filter="Louange"] { color: #00c853; border-color: #00c853; }
+        .filter-btn[data-filter="Louange"].active { background: #00c853; border-color: #00c853; color: white; }
+        .filter-btn[data-filter="Adoration"] { color: #651fff; border-color: #651fff; }
+        .filter-btn[data-filter="Adoration"].active { background: #651fff; border-color: #651fff; color: white; }
 
         .empty-state {
             text-align: center; padding: 60px 20px;
