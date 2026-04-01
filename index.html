@@ -2536,22 +2536,8 @@ if ('serviceWorker' in navigator) {
 // ====== INIT ======
 loadData();
 </script>
-<div id="version-footer" style="position:fixed;bottom:6px;right:10px;font-size:13px;color:rgba(79,0,255,0.45);font-family:'Nunito',sans-serif;font-weight:700;pointer-events:none;z-index:1"></div>
-<script>
-(function() {
-  function updateClock() {
-    const now = new Date();
-    const paris = now.toLocaleString('fr-FR', {
-      timeZone: 'Europe/Paris',
-      day: '2-digit', month: '2-digit', year: 'numeric',
-      hour: '2-digit', minute: '2-digit', second: '2-digit'
-    });
-    const el = document.getElementById('version-footer');
-    if (el) el.textContent = '🕐 ' + paris;
-  }
-  updateClock();
-  setInterval(updateClock, 1000);
-})();
-</script>
+<div style="position:fixed;bottom:6px;right:10px;font-size:13px;color:rgba(79,0,255,0.45);font-family:'Nunito',sans-serif;font-weight:700;pointer-events:none;z-index:1">
+  Modifié le 01/04/2026 à 16:06 (Paris)
+</div>
 </body>
 </html>
