@@ -1,4 +1,4 @@
-const CACHE_NAME = 'songbook-v9';
+const CACHE_NAME = 'songbook-v10';
 const ASSETS = [
     './',
     './index.html',
