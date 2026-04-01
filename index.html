@@ -866,11 +866,21 @@ function transposeContent(content, semitones, originalKey) {
     const targetIdx = (origIdx + semitones + 12) % 12;
     const targetNote = NOTES_SHARP[targetIdx];
     const useFlats = FLAT_KEYS.has(targetNote) || FLAT_KEYS.has(targetNote + 'm');
+    const CHORD_TOKEN_RE = /([A-G][#b]?(?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[A-G][#b]?)?)/g;
 
-    // Transpose all chords in [brackets]
-    return content.replace(CHORDPRO_REGEX, (match, chord) => {
-        return '[' + transposeChord(chord, semitones, useFlats) + ']';
-    });
+    return content.split('\n').map(line => {
+        // Inline ChordPro [Am]word
+        if (CHORDPRO_REGEX.test(line)) {
+            return line.replace(new RegExp(CHORDPRO_REGEX.source, 'g'), (match, chord) =>
+                '[' + transposeChord(chord, semitones, useFlats) + ']');
+        }
+        // Standalone standard chord line — transpose each token, keep spacing
+        if (isChordLine(line)) {
+            return line.replace(CHORD_TOKEN_RE, chord => transposeChord(chord, semitones, useFlats));
+        }
+        // Nashville lines don't transpose (numbers are relative to key)
+        return line;
+    }).join('\n');
 }
 
 function detectKey(content) {
@@ -1200,8 +1210,10 @@ function renderChordPro(content, transpose, originalKey) {
 
     const lines = text.split('\n');
     let html = '';
+    const COMBINED_CP = /\[([A-G][#b]?(?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[A-G][#b]?)?|[#b]?[1-7](?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[#b]?[1-7])?)\]/g;
 
-    for (const line of lines) {
+    for (let li = 0; li < lines.length; li++) {
+        const line = lines[li];
         // Section markers
         const sectionMatch = line.match(/^\s*\[(Verse|Chorus|Bridge|Intro|Outro|Couplet|Refrain|Pont|Pre-chorus|Interlude|Solo|Tag|Ending)\s*(\d*)\]\s*$/i);
         if (sectionMatch) {
@@ -1209,8 +1221,25 @@ function renderChordPro(content, transpose, originalKey) {
             continue;
         }
 
-        // Lines with ChordPro chords (standard [Am] or Nashville [6m])
-        const COMBINED_CP = /\[([A-G][#b]?(?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[A-G][#b]?)?|[#b]?[1-7](?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[#b]?[1-7])?)\]/g;
+        // Standalone chord-only line (standard or Nashville) — no [brackets]
+        const isNash = isNashvilleLine(line);
+        if ((isChordLine(line) || isNash) && !COMBINED_CP.test(line)) {
+            const chordHtml = isNash
+                ? escapeHtml(line).replace(/([#b]?[1-7](?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[#b]?[1-7])?)/g, '<span class="inline-chord">$1</span>')
+                : escapeHtml(line).replace(/([A-G][#b]?(?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[A-G][#b]?)?)/g, '<span class="inline-chord">$1</span>');
+            // Pair with the next line if it's a lyric (not a chord/section/empty line)
+            const next = li + 1 < lines.length ? lines[li + 1] : '';
+            const nextIsLyric = next && next.trim() !== '' && !isChordLine(next) && !isNashvilleLine(next) && !COMBINED_CP.test(next) && !next.match(/^\s*\[(?:Verse|Chorus|Bridge|Intro|Outro|Couplet|Refrain|Pont|Pre-chorus|Interlude|Solo|Tag|Ending)\s*\d*\]\s*$/i);
+            if (nextIsLyric) {
+                html += `<div class="chord-pair"><span class="chord-line">${chordHtml}</span><span class="lyric-line">${escapeHtml(next)}</span></div>\n`;
+                li++;
+            } else {
+                html += `<div class="chord-pair"><span class="chord-line">${chordHtml}</span></div>\n`;
+            }
+            continue;
+        }
+
+        // Lines with inline ChordPro chords (standard [Am] or Nashville [6m])
         if (CHORDPRO_REGEX.test(line) || COMBINED_CP.test(line)) {
             // Build two lines: chord line and lyric line
             let chordLine = '';
@@ -1706,10 +1735,10 @@ function processPDFColumn(items) {
     }
     lineGroups.sort((a, b) => b.y - a.y); // top to bottom
 
-    // Build text from a group of items, returns {text, charXMap}
+    // Build text from a group, preserving original X-gap spacing as spaces
     function buildGroupText(group) {
         const sorted = [...group.items].sort((a, b) => a.transform[4] - b.transform[4]);
-        let result = '', charXMap = [], lastX = null, lastW = 0;
+        let result = '', lastX = null, lastW = 0;
         for (const item of sorted) {
             const x = item.transform[4];
             const fs = Math.abs(item.transform[0]) || 12;
@@ -1717,171 +1746,22 @@ function processPDFColumn(items) {
             if (lastX !== null) {
                 const gap = x - (lastX + lastW);
                 if (gap > spW * 0.4) {
-                    const n = Math.max(1, Math.round(gap / spW));
-                    for (let s = 0; s < n; s++) charXMap.push(lastX + lastW + s * spW);
-                    result += ' '.repeat(n);
+                    result += ' '.repeat(Math.max(1, Math.round(gap / spW)));
                 }
             }
-            const charW = item.width && item.str.length > 0 ? item.width / item.str.length : (Math.abs(item.transform[0]) || 12) * 0.6;
-            for (let c = 0; c < item.str.length; c++) charXMap.push(x + c * charW);
             result += item.str;
             lastX = x;
-            lastW = item.width || item.str.length * (Math.abs(item.transform[0]) || 12) * 0.6;
+            lastW = item.width || item.str.length * fs * 0.6;
         }
-        return { text: result, charXMap };
+        return result;
     }
 
-    // Find char index in lyric line closest to given X
-    function xToCharIdx(charXMap, targetX) {
-        if (!charXMap.length) return 0;
-        let best = 0, bestD = Infinity;
-        for (let i = 0; i < charXMap.length; i++) {
-            const d = Math.abs(charXMap[i] - targetX);
-            if (d < bestD) { bestD = d; best = i; }
-        }
-        return best;
-    }
-
-    // Build ChordPro by inserting Nash chords at X-mapped positions in lyric
-    function mergeByX(chordGroup, lyricGroup) {
-        // Build charXMap from RAW lyric (before dots fix) so positions stay accurate
-        const { text: rawLyric, charXMap } = buildGroupText(lyricGroup);
-        if (!charXMap.length) return rawLyric;
-
-        const chordItems = [...chordGroup.items].sort((a, b) => a.transform[4] - b.transform[4]);
-
-        // Collect all tokens with their X positions across ALL items
-        const allTokens = [];
-        for (const item of chordItems) {
-            const itemX = item.transform[4];
-            const fs = Math.abs(item.transform[0]) || 12;
-            const rawStr = item.str.replace(/\./g, ' ').replace(/\s+/g, ' ').trim();
-            if (!rawStr) continue;
-            const itemW = item.width || rawStr.length * fs * 0.6;
-            const charW = rawStr.length > 0 ? itemW / rawStr.length : fs * 0.6;
-            let offset = 0;
-            for (const tok of rawStr.split(' ').filter(t => t)) {
-                allTokens.push({ tok, x: itemX + offset * charW });
-                offset += tok.length + 1;
-            }
-        }
-
-        // Merge chord-suffix tokens (m, maj, 7…) with preceding root number
-        // e.g. "6" + "m" → "6m" (they may be separate PDF items)
-        const mergedTokens = [];
-        for (const { tok, x } of allTokens) {
-            const last = mergedTokens[mergedTokens.length - 1];
-            if (last && /^[#b]?[1-7]$/.test(last.tok) &&
-                /^(m|min|maj|dim|aug|sus[24]?|add\d*|\d+)$/.test(tok) &&
-                !/^[1-6]$/.test(tok)) { // don't merge chord roots 1-6 as suffixes
-                last.tok += tok; // keep X of root
-            } else {
-                mergedTokens.push({ tok, x });
-            }
-        }
-
-        const inserts = [];
-        for (const { tok, x } of mergedTokens) {
-            if (NASH_TOKEN_RE.test(tok)) {
-                inserts.push({ idx: xToCharIdx(charXMap, x), chord: tok });
-            }
-        }
-        if (!inserts.length) return rawLyric;
-        // Remove duplicate chords at same position
-        const seen = new Set();
-        const unique = inserts.filter(ins => {
-            const key = ins.idx + '|' + ins.chord;
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-        });
-        unique.sort((a, b) => a.idx - b.idx);
-
-        // Build ChordPro using rawLyric (positions match charXMap)
-        let result = '', last = 0;
-        for (const { idx, chord } of unique) {
-            const pos = Math.max(last, idx);
-            result += rawLyric.substring(last, pos) + '[' + chord + ']';
-            last = pos;
-        }
-        result += rawLyric.substring(last);
-
-        // Apply dots fix AFTER merging
-        return result
-            .replace(/([a-zA-ZÀ-ÿ'\u00C0-\u017E])\.\[/g, '$1 [')         // letter.[chord]
-            .replace(/\]\.([a-zA-ZÀ-ÿ'\u00C0-\u017E])/g, '] $1')          // [chord].letter
-            .replace(/([a-zA-ZÀ-ÿ'\u00C0-\u017E])\.([a-zA-ZÀ-ÿ'\u00C0-\u017E])/g, '$1 $2') // letter.letter
-            .replace(/^\.+\s*/, '');
-    }
-
-    function isSectionHeader(line) {
-        return /^(VERSE|CHORUS|BRIDGE|TAG|INSTRUMENTAL|INTRO|OUTRO|PRE.?CHORUS|VERSET|REFRAIN|PONT|CODA)\b/i.test(line.trim());
-    }
-
-    // Split a mixed line group into {chordGroup, lyricGroup} when Nash chords
-    // share the same Y as lyrics (inline chords: chord items at left, lyric at right)
-    function splitInlineChords(group) {
-        const sorted = [...group.items].sort((a, b) => a.transform[4] - b.transform[4]);
-        let splitIdx = -1;
-        for (let k = 0; k < sorted.length; k++) {
-            const tok = sorted[k].str.replace(/\./g, '').trim();
-            if (!tok) continue;
-            if (!NASH_TOKEN_RE.test(tok) && k > 0) {
-                // Check that preceding items were all Nashville
-                const preceding = sorted.slice(0, k).filter(it => it.str.trim());
-                const allNash = preceding.every(it => {
-                    const t = it.str.replace(/\./g, '').trim();
-                    return !t || NASH_TOKEN_RE.test(t); // dot-only spacer items are ok
-                });
-                if (allNash && preceding.length > 0) {
-                    // Require a significant X gap before the lyric starts
-                    const lastChordX = sorted[k - 1].transform[4] + (sorted[k - 1].width || 10);
-                    const lyricStartX = sorted[k].transform[4];
-                    if (lyricStartX - lastChordX > 15) { splitIdx = k; }
-                }
-                break;
-            }
-        }
-        if (splitIdx < 0) return null;
-        return {
-            chordGroup: { y: group.y, items: sorted.slice(0, splitIdx) },
-            lyricGroup: { y: group.y, items: sorted.slice(splitIdx) }
-        };
-    }
-
-    // Process line groups
+    // Output each line as-is — preserve original chord-line / lyric-line structure
     let out = '';
-    let i = 0;
-    while (i < lineGroups.length) {
-        const group = lineGroups[i];
-        const { text: rawText } = buildGroupText(group);
+    for (const group of lineGroups) {
+        const rawText = buildGroupText(group);
         const cleaned = postProcessPDFText(rawText);
-
-        // Case 1: pure Nash chord line followed by lyric line
-        if (i + 1 < lineGroups.length) {
-            const nextGroup = lineGroups[i + 1];
-            const { text: nextRaw } = buildGroupText(nextGroup);
-            const nextCleaned = postProcessPDFText(nextRaw);
-            if (isNashvilleLine(cleaned) && !isNashvilleLine(nextCleaned)
-                && !isChordLine(nextCleaned) && !isSectionHeader(nextCleaned)) {
-                out += mergeByX(group, nextGroup) + '\n';
-                i += 2;
-                continue;
-            }
-        }
-
-        // Case 2: inline chords — Nash chord items at left, lyric items at right, same Y
-        if (!isNashvilleLine(cleaned) && !isSectionHeader(cleaned)) {
-            const split = splitInlineChords(group);
-            if (split) {
-                out += mergeByX(split.chordGroup, split.lyricGroup) + '\n';
-                i++;
-                continue;
-            }
-        }
-
         out += cleaned + '\n';
-        i++;
     }
     return out;
 }
