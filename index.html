@@ -1801,17 +1801,20 @@ async function extractPDF(file) {
     return text
         // Multi-dot separators → single space
         .replace(/\.{2,}/g, ' ')
-        // Dot surrounded by colons/spaces used as separator: .:.  .:  :.
+        // Dot/colon combos used as separators: .:. .: :. :.
         .replace(/\s*[.:]+\s*:\s*[.:]*\s*/g, ' ')
         .replace(/\s*:\s*\.\s*/g, ' ')
-        // Single dot between any two non-dot chars
+        .replace(/\s*:\.\s*/g, ' ')
+        // Digit.digit chains (Nashville chart): 4.1.3m → 4 1 3m
+        .replace(/(\d)\.(?=\d)/g, '$1 ')
+        // Single dot between various char types
         .replace(/([a-zA-ZÀ-ÿ\u00C0-\u017E)\]])\.\[/g, '$1 [')
         .replace(/\]\.([a-zA-ZÀ-ÿ\u00C0-\u017E([])/g, '] $1')
         .replace(/([a-zA-ZÀ-ÿ\u00C0-\u017E)\]])\.([a-zA-ZÀ-ÿ\u00C0-\u017E(])/g, '$1 $2')
         .replace(/([a-zA-ZÀ-ÿ\u00C0-\u017E)\]])\.(\d)/g, '$1 $2')
         .replace(/(\d)\.([a-zA-ZÀ-ÿ\u00C0-\u017E([])/g, '$1 $2')
         .replace(/\]\.\s*\?/g, ']?')
-        .replace(/,\.([a-zA-ZÀ-ÿ\u00C0-\u017E\[])/g, ', $1')
+        .replace(/,\.([a-zA-ZÀ-ÿ\u00C0-\u017E\["'\u201C\u2019\[])/g, ', $1')
         // Trailing dots at end of words/lines
         .replace(/\.\s*$/gm, '')
         .replace(/\.\s+/g, ' ')
