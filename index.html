@@ -130,7 +130,7 @@
         }
         .btn-icon:hover { background: var(--grad); color: white; }
 
-        .song-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+        .song-list { display: flex; flex-direction: column; gap: 8px; }
         .song-card {
             background: #ffffff; border-radius: 16px;
             padding: 18px 16px; cursor: pointer;
@@ -1452,7 +1452,6 @@ function renderSongList() {
 
     list.innerHTML = filtered.map(([id, s]) => `
         <div class="song-card" onclick="viewSong('${id}')">
-            <div class="song-icon">🎵</div>
             <div class="song-info">
                 <div class="song-title">${escapeHtml(s.title || 'Sans titre')}</div>
                 <div class="song-meta">${escapeHtml(s.artist || '')}${s.capo ? ' · Capo ' + s.capo : ''}</div>
@@ -2596,7 +2595,7 @@ if ('serviceWorker' in navigator) {
 loadData();
 </script>
 <div style="position:fixed;bottom:6px;right:10px;font-size:13px;color:rgba(79,0,255,0.45);font-family:'Nunito',sans-serif;font-weight:700;pointer-events:none;z-index:1">
-  Modifié le 01/04/2026 à 16:52 (Paris)
+  Modifié le 01/04/2026 à 17:05 (Paris)
 </div>
 </body>
 </html>
