@@ -304,7 +304,6 @@
             padding: 12px 16px; border: 1px solid rgba(79,0,255,0.12);
             box-shadow: 0 2px 16px rgba(79,0,255,0.08);
             font-family: 'Roboto Mono', 'Courier New', monospace;
-            white-space: pre-wrap;
             font-size: 14px;
             line-height: 1.35;
             color: #13122a;
@@ -1281,7 +1280,7 @@ function renderChordPro(content, transpose, originalKey) {
         // Section markers
         const sectionMatch = line.match(/^\s*\[(Verse|Chorus|Bridge|Intro|Outro|Couplet|Refrain|Pont|Pre-chorus|Interlude|Solo|Tag|Ending)\s*(\d*)\]\s*$/i);
         if (sectionMatch) {
-            html += `<span class="section-marker">[${sectionMatch[1]}${sectionMatch[2] ? ' ' + sectionMatch[2] : ''}]</span>\n`;
+            html += `<span class="section-marker">[${sectionMatch[1]}${sectionMatch[2] ? ' ' + sectionMatch[2] : ''}]</span>`;
             continue;
         }
 
@@ -1308,10 +1307,10 @@ function renderChordPro(content, transpose, originalKey) {
                 break; // next non-blank is another chord/section — don't pair
             }
             if (nextLyricIdx >= 0) {
-                html += `<div class="chord-pair"><span class="chord-line">${chordHtml}</span><span class="lyric-line">${escapeHtml(lines[nextLyricIdx])}</span></div>\n`;
+                html += `<div class="chord-pair"><span class="chord-line">${chordHtml}</span><span class="lyric-line">${escapeHtml(lines[nextLyricIdx])}</span></div>`;
                 li = nextLyricIdx;
             } else {
-                html += `<div class="chord-pair"><span class="chord-line">${chordHtml}</span></div>\n`;
+                html += `<div class="chord-pair"><span class="chord-line">${chordHtml}</span></div>`;
             }
             continue;
         }
@@ -1348,11 +1347,11 @@ function renderChordPro(content, transpose, originalKey) {
             }
 
             const lyricHtml = lyricLine.trim() ? `<span class="lyric-line">${escapeHtml(lyricLine)}</span>` : '';
-            html += `<div class="chord-pair"><span class="chord-line">${chordHtml}</span>${lyricHtml}</div>\n`;
+            html += `<div class="chord-pair"><span class="chord-line">${chordHtml}</span>${lyricHtml}</div>`;
         } else if (line.trim() === '') {
-            html += '\n';
+            // skip — no blank lines
         } else {
-            html += `<span class="lyric-line">${escapeHtml(line)}</span>\n`;
+            html += `<span class="lyric-line">${escapeHtml(line)}</span>`;
         }
     }
 
@@ -2569,7 +2568,7 @@ if ('serviceWorker' in navigator) {
 loadData();
 </script>
 <div style="position:fixed;bottom:6px;right:10px;font-size:13px;color:rgba(79,0,255,0.45);font-family:'Nunito',sans-serif;font-weight:700;pointer-events:none;z-index:1">
-  Modifié le 01/04/2026 à 16:30 (Paris)
+  Modifié le 01/04/2026 à 16:41 (Paris)
 </div>
 </body>
 </html>
