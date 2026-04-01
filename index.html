@@ -804,6 +804,26 @@ const FLAT_KEYS = new Set(['F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb',
 // Matches: C, Am, F#m7, Bb, Dsus4, G/B, Cadd9, Cdim, Caug, C7, Cmaj7, etc.
 const CHORD_REGEX = /^([A-G][#b]?)(m|min|maj|dim|aug|sus[24]?|add)?(\d+)?(\/[A-G][#b]?)?$/;
 
+// French solfège chord names: Do Ré Mi Fa Sol La Si (+ accidentals and suffixes)
+const FRENCH_NOTE = /^(Do|Ré|Re|Mi|Fa|Sol|La|Si)[#b]?(m|min|maj|dim|aug|sus[24]?|add)?(\d+)?(\/(?:Do|Ré|Re|Mi|Fa|Sol|La|Si)[#b]?)?$/i;
+const FRENCH_TO_STD = { do:'C', ré:'D', re:'D', mi:'E', fa:'F', sol:'G', la:'A', si:'B' };
+const STD_TO_FRENCH = { C:'Do', D:'Ré', E:'Mi', F:'Fa', G:'Sol', A:'La', B:'Si' };
+
+function isFrenchChord(token) {
+    return FRENCH_NOTE.test(token.trim());
+}
+function frenchChordToStd(chord) {
+    return chord.replace(/^(Do|Ré|Re|Mi|Fa|Sol|La|Si)([#b]?)(.*)/i, (_, note, acc, rest) => {
+        const std = FRENCH_TO_STD[note.toLowerCase()] || note;
+        return std + acc + rest;
+    });
+}
+function stdChordToFrench(chord) {
+    return chord.replace(/^([A-G])([#b]?)(.*?)$/, (_, note, acc, rest) => {
+        return (STD_TO_FRENCH[note] || note) + acc + rest;
+    });
+}
+
 // Full chord regex for detection in text (word boundary aware)
 const CHORD_IN_TEXT = /\b([A-G][#b]?(?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[A-G][#b]?)?)\b/g;
 
@@ -811,7 +831,7 @@ const CHORD_IN_TEXT = /\b([A-G][#b]?(?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(
 const CHORDPRO_REGEX = /\[([A-G][#b]?(?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[A-G][#b]?)?)\]/g;
 
 function isChord(token) {
-    return CHORD_REGEX.test(token.trim());
+    return CHORD_REGEX.test(token.trim()) || isFrenchChord(token.trim());
 }
 
 function isChordLine(line) {
@@ -874,8 +894,17 @@ function transposeContent(content, semitones, originalKey) {
             return line.replace(new RegExp(CHORDPRO_REGEX.source, 'g'), (match, chord) =>
                 '[' + transposeChord(chord, semitones, useFlats) + ']');
         }
-        // Standalone standard chord line — transpose each token, keep spacing
+        // Standalone chord line — transpose each token, keep spacing
         if (isChordLine(line)) {
+            const hasFrench = line.split(/\s+/).some(t => t && isFrenchChord(t));
+            if (hasFrench) {
+                return line.replace(/(Do|Ré|Re|Mi|Fa|Sol|La|Si)([#b]?)((?:m|min|maj|dim|aug|sus[24]?|add)?\d*)/gi,
+                    (_, note, acc, suffix) => {
+                        const std = (FRENCH_TO_STD[note.toLowerCase()] || note) + acc + suffix;
+                        const transposed = transposeChord(std, semitones, useFlats);
+                        return transposed.replace(/^([A-G])([#b]?)(.*?)$/, (__, n, a, rest) => (STD_TO_FRENCH[n] || n) + a + rest);
+                    });
+            }
             return line.replace(CHORD_TOKEN_RE, chord => transposeChord(chord, semitones, useFlats));
         }
         // Nashville lines don't transpose (numbers are relative to key)
@@ -1221,18 +1250,31 @@ function renderChordPro(content, transpose, originalKey) {
             continue;
         }
 
-        // Standalone chord-only line (standard or Nashville) — no [brackets]
+        // Standalone chord-only line (standard, French solfège, or Nashville) — no [brackets]
         const isNash = isNashvilleLine(line);
+        const hasFrenchChords = !isNash && line.split(/\s+/).some(t => t && isFrenchChord(t));
         if ((isChordLine(line) || isNash) && !COMBINED_CP.test(line)) {
-            const chordHtml = isNash
-                ? escapeHtml(line).replace(/([#b]?[1-7](?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[#b]?[1-7])?)/g, '<span class="inline-chord">$1</span>')
-                : escapeHtml(line).replace(/([A-G][#b]?(?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[A-G][#b]?)?)/g, '<span class="inline-chord">$1</span>');
-            // Pair with the next line if it's a lyric (not a chord/section/empty line)
-            const next = li + 1 < lines.length ? lines[li + 1] : '';
-            const nextIsLyric = next && next.trim() !== '' && !isChordLine(next) && !isNashvilleLine(next) && !COMBINED_CP.test(next) && !next.match(/^\s*\[(?:Verse|Chorus|Bridge|Intro|Outro|Couplet|Refrain|Pont|Pre-chorus|Interlude|Solo|Tag|Ending)\s*\d*\]\s*$/i);
-            if (nextIsLyric) {
-                html += `<div class="chord-pair"><span class="chord-line">${chordHtml}</span><span class="lyric-line">${escapeHtml(next)}</span></div>\n`;
-                li++;
+            let chordHtml;
+            if (isNash) {
+                chordHtml = escapeHtml(line).replace(/([#b]?[1-7](?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[#b]?[1-7])?)/g, '<span class="inline-chord">$1</span>');
+            } else if (hasFrenchChords) {
+                chordHtml = escapeHtml(line).replace(/((?:Do|Ré|Re|Mi|Fa|Sol|La|Si)[#b]?(?:m|min|maj|dim|aug|sus[24]?|add)?\d*)/gi, '<span class="inline-chord">$1</span>');
+            } else {
+                chordHtml = escapeHtml(line).replace(/([A-G][#b]?(?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[A-G][#b]?)?)/g, '<span class="inline-chord">$1</span>');
+            }
+            // Look for next lyric line, skipping blank lines (Word doc format has blank between chord and lyric)
+            let nextLyricIdx = -1;
+            for (let k = li + 1; k < Math.min(li + 3, lines.length); k++) {
+                const l = lines[k];
+                if (l.trim() === '') continue;
+                if (!isChordLine(l) && !isNashvilleLine(l) && !COMBINED_CP.test(l) && !l.match(/^\s*\[(?:Verse|Chorus|Bridge|Intro|Outro|Couplet|Refrain|Pont|Pre-chorus|Interlude|Solo|Tag|Ending)\s*\d*\]\s*$/i)) {
+                    nextLyricIdx = k; break;
+                }
+                break; // next non-blank is another chord/section — don't pair
+            }
+            if (nextLyricIdx >= 0) {
+                html += `<div class="chord-pair"><span class="chord-line">${chordHtml}</span><span class="lyric-line">${escapeHtml(lines[nextLyricIdx])}</span></div>\n`;
+                li = nextLyricIdx;
             } else {
                 html += `<div class="chord-pair"><span class="chord-line">${chordHtml}</span></div>\n`;
             }
