@@ -301,35 +301,38 @@
 
         .partition-content {
             background: #ffffff; border-radius: 14px;
-            padding: 14px 18px; border: 1px solid rgba(79,0,255,0.12);
+            padding: 12px 16px; border: 1px solid rgba(79,0,255,0.12);
             box-shadow: 0 2px 16px rgba(79,0,255,0.08);
             font-family: 'Roboto Mono', 'Courier New', monospace;
             white-space: pre-wrap;
             font-size: 14px;
-            line-height: 1.5;
+            line-height: 1.35;
             color: #13122a;
         }
         .partition-content .chord-pair {
             display: block;
-            margin-bottom: 2px;
+            margin: 0;
+            padding: 0;
         }
         .partition-content .chord-line {
             display: block;
-            line-height: 1.3;
-            font-size: 0.9em;
+            line-height: 1.2;
+            font-size: 0.88em;
             color: var(--chord-color); font-weight: 700;
             letter-spacing: 0.3px;
-            margin-top: 6px;
+            margin-top: 4px;
+            margin-bottom: 0;
         }
         .partition-content .lyric-line {
             display: block;
-            line-height: 1.5;
+            line-height: 1.35;
+            margin-bottom: 0;
             color: var(--text-primary);
         }
         .partition-content .section-marker {
             color: var(--warning); font-weight: 700;
-            font-style: italic; margin-top: 6px;
-            display: block; line-height: 1.6;
+            font-style: italic; margin-top: 4px;
+            display: block; line-height: 1.4;
         }
         .partition-content .inline-chord {
             color: var(--chord-color); font-weight: 700;
@@ -1264,7 +1267,12 @@ function renderChordPro(content, transpose, originalKey) {
     const origIdx = getNoteIndex(originalKey || 'C');
     const displayKey = NOTES_SHARP[(origIdx + transpose + 12) % 12];
 
-    const lines = text.split('\n');
+    // Collapse multiple consecutive blank lines into one, strip leading/trailing blanks
+    const lines = text.split('\n').reduce((acc, l) => {
+        if (l.trim() === '' && acc.length > 0 && acc[acc.length-1].trim() === '') return acc;
+        acc.push(l);
+        return acc;
+    }, []).filter((l, i, arr) => !(l.trim() === '' && i === 0));
     let html = '';
     const COMBINED_CP = /\[([A-G][#b]?(?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[A-G][#b]?)?|[#b]?[1-7](?:m|min|maj|dim|aug|sus[24]?|add)?(?:\d+)?(?:\/[#b]?[1-7])?)\]/g;
 
@@ -1701,6 +1709,21 @@ async function handleFile(file) {
         const title = importedTitle || file.name.replace(/\.[^.]+$/, '');
         document.getElementById('songTitleInput').value = title;
         if (importedArtist) document.getElementById('songArtistInput') && (document.getElementById('songArtistInput').value = importedArtist);
+
+        // Remove title line from content if it matches (PDF/DOCX often include title as first line)
+        if (title) {
+            const titleNorm = title.trim().toLowerCase();
+            const lines = text.split('\n');
+            // Remove leading lines that are the title or a close variant
+            while (lines.length > 0) {
+                const l = lines[0].trim().toLowerCase().replace(/[^a-z0-9\u00c0-\u017e]/g, ' ').replace(/\s+/g, ' ').trim();
+                const t = titleNorm.replace(/[^a-z0-9\u00c0-\u017e]/g, ' ').replace(/\s+/g, ' ').trim();
+                if (l === t || t.startsWith(l) || l.startsWith(t.slice(0, Math.max(5, t.length * 0.7)))) {
+                    lines.shift();
+                } else break;
+            }
+            text = lines.join('\n');
+        }
 
         // Parse and set content into current version
         const importKey = document.getElementById('songKeyInput').value || 'C';
@@ -2546,7 +2569,7 @@ if ('serviceWorker' in navigator) {
 loadData();
 </script>
 <div style="position:fixed;bottom:6px;right:10px;font-size:13px;color:rgba(79,0,255,0.45);font-family:'Nunito',sans-serif;font-weight:700;pointer-events:none;z-index:1">
-  Modifié le 01/04/2026 à 16:22 (Paris)
+  Modifié le 01/04/2026 à 16:30 (Paris)
 </div>
 </body>
 </html>
