@@ -1600,17 +1600,18 @@ function deleteSong(id, title) {
 function detectAndPreview() {
     const raw = document.getElementById('songContentInput').value;
     const keyInput = document.getElementById('songKeyInput');
+    const nashville = isNashvilleContent(raw);
     const key = keyInput.value || 'C';
     const parsed = parseContentToChordPro(raw, key);
     document.getElementById('songContentInput').value = parsed;
 
     const preview = document.getElementById('editorPreview');
     preview.style.display = 'block';
-    preview.innerHTML = renderChordPro(parsed, 0, detectKey(parsed));
+    preview.innerHTML = renderChordPro(parsed, 0, key);
 
-    // Auto-detect key if not set
+    // Auto-detect key if not set — Nashville is always C (relative system)
     if (!keyInput.value) {
-        keyInput.value = detectKey(parsed);
+        keyInput.value = nashville ? 'C' : detectKey(parsed);
     }
 }
 
@@ -1623,14 +1624,17 @@ function saveSong() {
 
     // Auto-parse each version
     const keyForParse = document.getElementById('songKeyInput').value || 'C';
+    let wasNashville = false;
     for (let v of editorVersions) {
         if (!CHORDPRO_REGEX.test(v.content)) {
+            if (isNashvilleContent(v.content)) wasNashville = true;
             v.content = parseContentToChordPro(v.content, keyForParse);
         }
     }
 
     const firstContent = editorVersions[0].content;
-    const key = document.getElementById('songKeyInput').value || detectKey(firstContent);
+    // Nashville charts are relative (no absolute key) → default C, not auto-detected
+    const key = document.getElementById('songKeyInput').value || (wasNashville ? 'C' : detectKey(firstContent));
     const tags = getEditorTags();
 
     const songData = {
