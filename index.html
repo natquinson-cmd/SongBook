@@ -575,7 +575,7 @@
             <div class="upload-icon">📄</div>
             <p>Glissez un fichier Word ou PDF ici, ou cliquez pour s&eacute;lectionner</p>
             <p style="font-size:0.8em; margin-top:4px">Formats : .docx, .pdf, .txt</p>
-            <input type="file" id="fileInput" accept=".docx,.pdf,.txt,.onsong,.cho,.chopro,.chordpro">
+            <input type="file" id="fileInput" accept=".doc,.docx,.pdf,.txt,.onsong,.cho,.chopro,.chordpro">
         </div>
 
         <div class="editor-section">
@@ -1565,7 +1565,7 @@ async function handleFile(file) {
             text = await file.text();
         } else if (ext === 'pdf') {
             text = await extractPDF(file);
-        } else if (ext === 'docx') {
+        } else if (ext === 'docx' || ext === 'doc') {
             text = await extractDocx(file);
         } else if (ext === 'onsong') {
             const raw = await file.text();
@@ -1618,8 +1618,8 @@ function resetUploadZone() {
     uploadZone.innerHTML = `
         <div class="upload-icon">📄</div>
         <p>Glissez un fichier Word ou PDF ici, ou cliquez pour s&eacute;lectionner</p>
-        <p style="font-size:0.8em; margin-top:4px">Formats : .docx, .pdf, .txt, .onsong, .cho, .chopro, .chordpro</p>
-        <input type="file" id="fileInput" accept=".docx,.pdf,.txt,.onsong,.cho,.chopro,.chordpro">
+        <p style="font-size:0.8em; margin-top:4px">Formats : .doc, .docx, .pdf, .txt, .onsong, .cho, .chopro, .chordpro</p>
+        <input type="file" id="fileInput" accept=".doc,.docx,.pdf,.txt,.onsong,.cho,.chopro,.chordpro">
     `;
     const newInput = document.getElementById('fileInput');
     newInput.addEventListener('change', () => {
