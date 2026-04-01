@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#1a1a2e">
+    <meta name="theme-color" content="#7c6ef0">
     <title>SongBook</title>
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
@@ -20,20 +20,20 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <style>
         :root {
-            --bg-primary: #1a1a2e;
-            --bg-secondary: #16213e;
-            --bg-card: #1e2a4a;
-            --bg-input: #0f1729;
-            --text-primary: #e8e8e8;
-            --text-secondary: #a0a0b8;
-            --accent: #e94560;
-            --accent-hover: #ff6b81;
-            --accent2: #0f3460;
-            --chord-color: #e94560;
-            --success: #2ecc71;
-            --warning: #f39c12;
-            --border: rgba(255,255,255,0.08);
-            --shadow: 0 4px 20px rgba(0,0,0,0.3);
+            --bg-primary: #f0f2fa;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --bg-input: #f5f6fb;
+            --text-primary: #1e1e2e;
+            --text-secondary: #6b7280;
+            --accent: #7c6ef0;
+            --accent-hover: #6557d9;
+            --accent2: #ede9fe;
+            --chord-color: #e2547a;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --border: rgba(0,0,0,0.08);
+            --shadow: 0 2px 12px rgba(124,110,240,0.10);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -50,8 +50,9 @@
         .navbar {
             position: fixed; top: 0; left: 0; right: 0;
             height: 56px;
-            background: var(--bg-secondary);
-            border-bottom: 1px solid var(--border);
+            background: #ffffff;
+            border-bottom: 1px solid rgba(124,110,240,0.12);
+            box-shadow: 0 1px 16px rgba(124,110,240,0.08);
             display: flex; align-items: center;
             padding: 0 16px;
             z-index: 100;
@@ -121,13 +122,14 @@
 
         .song-list { display: flex; flex-direction: column; gap: 8px; }
         .song-card {
-            background: var(--bg-card); border-radius: 12px;
+            background: #ffffff; border-radius: 14px;
             padding: 16px; cursor: pointer;
-            border: 1px solid var(--border);
+            border: 1px solid rgba(124,110,240,0.12);
+            box-shadow: 0 2px 8px rgba(124,110,240,0.06);
             transition: all 0.2s;
             display: flex; align-items: center; gap: 12px;
         }
-        .song-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+        .song-card:hover { border-color: var(--accent); box-shadow: 0 4px 16px rgba(124,110,240,0.15); transform: translateY(-1px); }
         .song-card .song-info { flex: 1; }
         .song-card .song-title { font-weight: 600; font-size: 1.05em; }
         .song-card .song-meta { color: var(--text-secondary); font-size: 0.85em; margin-top: 4px; }
@@ -151,10 +153,10 @@
             padding: 2px 10px; border-radius: 4px; font-size: 0.75em;
             font-weight: 600; letter-spacing: 0.3px;
         }
-        .tag-celebration { background: rgba(255,221,0,0.2); color: #ffd700; border: 1px solid rgba(255,221,0,0.4); }
-        .tag-combat { background: rgba(231,76,60,0.2); color: #e74c3c; border: 1px solid rgba(231,76,60,0.3); }
-        .tag-louange { background: rgba(46,204,113,0.2); color: #2ecc71; border: 1px solid rgba(46,204,113,0.3); }
-        .tag-adoration { background: rgba(142,68,230,0.2); color: #8e44e6; border: 1px solid rgba(142,68,230,0.3); }
+        .tag-celebration { background: #fef9c3; color: #b45309; border: 1px solid #fde68a; }
+        .tag-combat { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+        .tag-louange { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+        .tag-adoration { background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; }
 
         .tag-selector { display: flex; gap: 8px; flex-wrap: wrap; }
         .tag-toggle {
@@ -163,14 +165,14 @@
             font-weight: 600; transition: all 0.2s; opacity: 0.5;
         }
         .tag-toggle.active { opacity: 1; }
-        .tag-toggle[data-tag="Célébration"] { color: #ffd700; border-color: rgba(255,215,0,0.3); }
-        .tag-toggle[data-tag="Célébration"].active { background: rgba(255,215,0,0.2); border-color: #ffd700; }
-        .tag-toggle[data-tag="Combat"] { color: #e74c3c; border-color: rgba(231,76,60,0.3); }
-        .tag-toggle[data-tag="Combat"].active { background: rgba(231,76,60,0.2); border-color: #e74c3c; }
-        .tag-toggle[data-tag="Louange"] { color: #2ecc71; border-color: rgba(46,204,113,0.3); }
-        .tag-toggle[data-tag="Louange"].active { background: rgba(46,204,113,0.2); border-color: #2ecc71; }
-        .tag-toggle[data-tag="Adoration"] { color: #8e44e6; border-color: rgba(142,68,230,0.3); }
-        .tag-toggle[data-tag="Adoration"].active { background: rgba(142,68,230,0.2); border-color: #8e44e6; }
+        .tag-toggle[data-tag="Célébration"] { color: #b45309; border-color: #fde68a; }
+        .tag-toggle[data-tag="Célébration"].active { background: #fef9c3; border-color: #b45309; }
+        .tag-toggle[data-tag="Combat"] { color: #b91c1c; border-color: #fca5a5; }
+        .tag-toggle[data-tag="Combat"].active { background: #fee2e2; border-color: #b91c1c; }
+        .tag-toggle[data-tag="Louange"] { color: #166534; border-color: #86efac; }
+        .tag-toggle[data-tag="Louange"].active { background: #dcfce7; border-color: #166534; }
+        .tag-toggle[data-tag="Adoration"] { color: #6d28d9; border-color: #c4b5fd; }
+        .tag-toggle[data-tag="Adoration"].active { background: #ede9fe; border-color: #6d28d9; }
 
         .filter-bar { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
         .filter-btn {
@@ -179,15 +181,15 @@
             font-weight: 600; transition: all 0.2s; color: var(--text-secondary);
         }
         .filter-btn.active { color: white; }
-        .filter-btn[data-filter="all"].active { background: var(--accent); border-color: var(--accent); }
-        .filter-btn[data-filter="Célébration"] { color: #ffd700; }
-        .filter-btn[data-filter="Célébration"].active { background: rgba(255,215,0,0.25); border-color: #ffd700; }
-        .filter-btn[data-filter="Combat"] { color: #e74c3c; }
-        .filter-btn[data-filter="Combat"].active { background: rgba(231,76,60,0.25); border-color: #e74c3c; }
-        .filter-btn[data-filter="Louange"] { color: #2ecc71; }
-        .filter-btn[data-filter="Louange"].active { background: rgba(46,204,113,0.25); border-color: #2ecc71; }
-        .filter-btn[data-filter="Adoration"] { color: #8e44e6; }
-        .filter-btn[data-filter="Adoration"].active { background: rgba(142,68,230,0.25); border-color: #8e44e6; }
+        .filter-btn[data-filter="all"].active { background: var(--accent); border-color: var(--accent); color: white; }
+        .filter-btn[data-filter="Célébration"] { color: #b45309; }
+        .filter-btn[data-filter="Célébration"].active { background: #fef9c3; border-color: #fde68a; color: #b45309; }
+        .filter-btn[data-filter="Combat"] { color: #b91c1c; }
+        .filter-btn[data-filter="Combat"].active { background: #fee2e2; border-color: #fca5a5; color: #b91c1c; }
+        .filter-btn[data-filter="Louange"] { color: #166534; }
+        .filter-btn[data-filter="Louange"].active { background: #dcfce7; border-color: #86efac; color: #166534; }
+        .filter-btn[data-filter="Adoration"] { color: #6d28d9; }
+        .filter-btn[data-filter="Adoration"].active { background: #ede9fe; border-color: #c4b5fd; color: #6d28d9; }
 
         .empty-state {
             text-align: center; padding: 60px 20px;
@@ -291,11 +293,13 @@
         .font-controls button:hover { background: var(--accent); }
 
         .partition-content {
-            background: var(--bg-card); border-radius: 12px;
-            padding: 24px; border: 1px solid var(--border);
+            background: #ffffff; border-radius: 14px;
+            padding: 28px 32px; border: 1px solid rgba(124,110,240,0.12);
+            box-shadow: 0 2px 16px rgba(124,110,240,0.07);
             font-family: 'Courier New', monospace;
             line-height: 2.2; white-space: pre-wrap;
             font-size: 16px;
+            color: #1e1e2e;
         }
         .partition-content .chord-line {
             color: var(--chord-color); font-weight: 700;
@@ -1430,6 +1434,7 @@ function renderSongList() {
             <span class="song-key">${escapeHtml(s.key || '?')}</span>
             <div class="song-actions">
                 <button onclick="event.stopPropagation(); editSong('${id}')" title="Modifier">&#9998;</button>
+                <button onclick="event.stopPropagation(); deleteSong('${id}', '${escapeHtml(s.title || 'ce chant')}')" title="Supprimer" style="color:#e94560">&#128465;</button>
             </div>
         </div>
     `).join('');
@@ -1554,6 +1559,13 @@ function showEditor(songId) {
 
 function editSong(id) {
     showEditor(id);
+}
+
+function deleteSong(id, title) {
+    if (!confirm(`Supprimer "${title}" ? Cette action est irréversible.`)) return;
+    db.ref(`songbook/songs/${id}`).remove().then(() => {
+        showToast('Chant supprimé');
+    }).catch(e => showToast('Erreur : ' + e.message));
 }
 
 function detectAndPreview() {
@@ -1784,6 +1796,14 @@ function detectPDFColumns(items, pageWidth) {
 }
 
 function processPDFColumn(items) {
+    // Find the reference font size (most common = lyric text font)
+    const fsSizes = items.map(it => Math.round(Math.abs(it.transform[0]) || 12)).filter(f => f >= 6);
+    const fsFreq = {};
+    for (const fs of fsSizes) fsFreq[fs] = (fsFreq[fs] || 0) + 1;
+    const refFs = fsSizes.length ? parseInt(Object.entries(fsFreq).sort((a, b) => b[1] - a[1])[0][0]) : 12;
+    const refSpW = refFs * 0.55; // normalize ALL lines to lyric character width
+    const leftMarginX = Math.min(...items.map(it => it.transform[4]));
+
     // Group items into lines by Y position
     const lineGroups = [];
     for (const item of items) {
@@ -1796,23 +1816,27 @@ function processPDFColumn(items) {
     }
     lineGroups.sort((a, b) => b.y - a.y); // top to bottom
 
-    // Build text from a group, preserving original X-gap spacing as spaces
+    // Build text from a group, using uniform refSpW for all lines so chord and lyric positions align
     function buildGroupText(group) {
         const sorted = [...group.items].sort((a, b) => a.transform[4] - b.transform[4]);
         let result = '', lastX = null, lastW = 0;
         for (const item of sorted) {
             const x = item.transform[4];
-            const fs = Math.abs(item.transform[0]) || 12;
-            const spW = fs * 0.35;
-            if (lastX !== null) {
+            if (lastX === null) {
+                // Leading indent from column left margin (same scale for all lines)
+                const leadingGap = x - leftMarginX;
+                if (leadingGap > refSpW * 0.4) {
+                    result += ' '.repeat(Math.max(0, Math.round(leadingGap / refSpW)));
+                }
+            } else {
                 const gap = x - (lastX + lastW);
-                if (gap > spW * 0.4) {
-                    result += ' '.repeat(Math.max(1, Math.round(gap / spW)));
+                if (gap > refSpW * 0.3) {
+                    result += ' '.repeat(Math.max(1, Math.round(gap / refSpW)));
                 }
             }
             result += item.str;
             lastX = x;
-            lastW = item.width || item.str.length * fs * 0.6;
+            lastW = item.width || item.str.length * refSpW;
         }
         return result;
     }
