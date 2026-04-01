@@ -1,4 +1,4 @@
-const CACHE_NAME = 'songbook-v2';
+const CACHE_NAME = 'songbook-v3';
 const ASSETS = [
     './',
     './index.html',
@@ -25,10 +25,13 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
-    // Network first for Firebase, cache first for static assets
-    if (event.request.url.includes('firebasedatabase') || event.request.url.includes('googleapis')) {
+    const url = event.request.url;
+    // Always network-first for HTML pages and Firebase
+    if (url.includes('firebasedatabase') || url.includes('googleapis') ||
+        url.endsWith('.html') || url.endsWith('/') || url === self.location.origin + '/') {
         event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
     } else {
+        // Cache-first for CDN assets (pdf.js, mammoth, etc.)
         event.respondWith(
             caches.match(event.request).then(cached => cached || fetch(event.request))
         );
