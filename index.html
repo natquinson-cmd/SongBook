@@ -2527,7 +2527,10 @@ function showToast(msg, duration = 2500) {
 
 // ====== SERVICE WORKER ======
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW:', err));
+    navigator.serviceWorker.register('./sw.js').then(reg => {
+        // Force SW update check on every page load
+        reg.update();
+    }).catch(err => console.log('SW:', err));
 }
 
 // ====== INIT ======
