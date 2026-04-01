@@ -1775,32 +1775,41 @@ async function extractPDF(file) {
 
 function detectPDFColumns(items, pageWidth) {
     if (!items.length) return null;
-    // Strategy: find items that share the same Y (same line) but are far apart in X.
-    // These are clearly in different columns. The midpoint gap is the column separator.
+    // Group items by Y line, keeping the full item info
     const byY = {};
     for (const it of items) {
         const y = Math.round(it.transform[5]);
         if (!byY[y]) byY[y] = [];
-        byY[y].push(it.transform[4]);
+        byY[y].push(it);
     }
-    const gaps = [];
-    for (const xs of Object.values(byY)) {
+    // Only use LYRIC lines (not chord-only lines) to vote for column split
+    // A chord-only line has all items with str length <= 3 (e.g. "4", "6m", "Am7")
+    const lyricLines = Object.values(byY).filter(lineItems => {
+        const hasLongStr = lineItems.some(it => it.str.trim().length > 3);
+        return hasLongStr;
+    });
+    if (lyricLines.length < 3) return null;
+
+    // A true 2-column lyric layout: a lyric line must have text on BOTH halves of the page
+    // with a significant gap in the middle (> 25% of page width, centered 30%-70%)
+    const splitVotes = {};
+    for (const lineItems of lyricLines) {
+        const xs = lineItems.map(it => it.transform[4]).sort((a, b) => a - b);
         if (xs.length < 2) continue;
-        xs.sort((a, b) => a - b);
         for (let i = 1; i < xs.length; i++) {
             const gap = xs[i] - xs[i - 1];
             const midX = (xs[i] + xs[i - 1]) / 2;
-            // Only consider significant gaps in the central part of the page
-            if (gap > pageWidth * 0.1 && midX > pageWidth * 0.2 && midX < pageWidth * 0.85) {
-                gaps.push({ gap, splitX: midX });
+            if (gap > pageWidth * 0.25 && midX > pageWidth * 0.30 && midX < pageWidth * 0.70) {
+                const bucket = Math.round(midX / 30) * 30;
+                splitVotes[bucket] = (splitVotes[bucket] || 0) + 1;
             }
         }
     }
-    if (!gaps.length) return null;
-    // Use the most common split zone (median of all detected gaps)
-    gaps.sort((a, b) => a.splitX - b.splitX);
-    const mid = gaps[Math.floor(gaps.length / 2)];
-    return mid.splitX;
+    if (!Object.keys(splitVotes).length) return null;
+    const best = Object.entries(splitVotes).sort((a, b) => b[1] - a[1])[0];
+    // Must appear in at least 40% of lyric lines to be a real 2-column layout
+    if (best[1] < lyricLines.length * 0.40) return null;
+    return parseInt(best[0]);
 }
 
 function processPDFColumn(items) {
@@ -2537,7 +2546,7 @@ if ('serviceWorker' in navigator) {
 loadData();
 </script>
 <div style="position:fixed;bottom:6px;right:10px;font-size:13px;color:rgba(79,0,255,0.45);font-family:'Nunito',sans-serif;font-weight:700;pointer-events:none;z-index:1">
-  Modifié le 01/04/2026 à 16:06 (Paris)
+  Modifié le 01/04/2026 à 16:22 (Paris)
 </div>
 </body>
 </html>
