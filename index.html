@@ -1592,52 +1592,194 @@ async function extractPDF(file) {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     let text = '';
-    for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
+
+    for (let p = 1; p <= pdf.numPages; p++) {
+        const page = await pdf.getPage(p);
+        const viewport = page.getViewport({ scale: 1 });
+        const pageWidth = viewport.width;
         const content = await page.getTextContent();
-        // Group items by line (Y position) and preserve X positioning for spaces
-        let lastY = null;
-        let lastX = 0;
-        let lastWidth = 0;
-        let lastFontSize = 12;
-        let lineText = '';
+        const allItems = content.items.filter(it => it.str && it.str.trim());
 
-        for (const item of content.items) {
-            if (!item.str) continue;
-            const x = item.transform[4];
-            const y = item.transform[5];
-            const fontSize = Math.abs(item.transform[0]) || 12;
-            const spaceWidth = fontSize * 0.35;
-            // Use font-relative threshold: same line if Y diff < half a line height
-            const lineThreshold = fontSize * 0.5;
+        // Detect if page has two columns (find largest horizontal gap in middle zone)
+        const colSplit = detectPDFColumns(allItems, pageWidth);
+        const columns = colSplit
+            ? [allItems.filter(it => it.transform[4] < colSplit),
+               allItems.filter(it => it.transform[4] >= colSplit)]
+            : [allItems];
 
-            // New line detected
-            if (lastY !== null && Math.abs(y - lastY) > lineThreshold) {
-                text += lineText + '\n';
-                lineText = '';
-                lastX = 0;
-                lastWidth = 0;
+        for (const colItems of columns) {
+            if (!colItems.length) continue;
+            text += processPDFColumn(colItems) + '\n';
+        }
+    }
+    // Final global cleanup: remove any remaining dots-as-spaces
+    return text
+        .replace(/([a-zA-ZÀ-ÿ'\u00C0-\u017E])\.\[/g, '$1 [')        // letter.[chord]
+        .replace(/\]\.([a-zA-ZÀ-ÿ'\u00C0-\u017E])/g, '] $1')         // [chord].letter
+        .replace(/([a-zA-ZÀ-ÿ'\u00C0-\u017E])\.([a-zA-ZÀ-ÿ'\u00C0-\u017E])/g, '$1 $2') // letter.letter
+        .replace(/,\.([a-zA-ZÀ-ÿ'\u00C0-\u017E\[])/g, ', $1')        // ,.letter or ,.[chord]
+        .replace(/,\.\[/g, ', [');                                      // ,.[chord] fallback
+}
+
+function detectPDFColumns(items, pageWidth) {
+    if (!items.length) return null;
+    // Strategy: find items that share the same Y (same line) but are far apart in X.
+    // These are clearly in different columns. The midpoint gap is the column separator.
+    const byY = {};
+    for (const it of items) {
+        const y = Math.round(it.transform[5]);
+        if (!byY[y]) byY[y] = [];
+        byY[y].push(it.transform[4]);
+    }
+    const gaps = [];
+    for (const xs of Object.values(byY)) {
+        if (xs.length < 2) continue;
+        xs.sort((a, b) => a - b);
+        for (let i = 1; i < xs.length; i++) {
+            const gap = xs[i] - xs[i - 1];
+            const midX = (xs[i] + xs[i - 1]) / 2;
+            // Only consider significant gaps in the central part of the page
+            if (gap > pageWidth * 0.1 && midX > pageWidth * 0.2 && midX < pageWidth * 0.85) {
+                gaps.push({ gap, splitX: midX });
             }
+        }
+    }
+    if (!gaps.length) return null;
+    // Use the most common split zone (median of all detected gaps)
+    gaps.sort((a, b) => a.splitX - b.splitX);
+    const mid = gaps[Math.floor(gaps.length / 2)];
+    return mid.splitX;
+}
 
-            // Detect gap between items on the same line = space(s)
-            if (lineText.length > 0 && lastY !== null && Math.abs(y - lastY) <= lineThreshold) {
-                const gap = x - (lastX + lastWidth);
-                if (gap > spaceWidth * 0.5) {
-                    const numSpaces = Math.max(1, Math.round(gap / spaceWidth));
-                    lineText += ' '.repeat(numSpaces);
+function processPDFColumn(items) {
+    // Group items into lines by Y position
+    const lineGroups = [];
+    for (const item of items) {
+        const y = item.transform[5];
+        const fs = Math.abs(item.transform[0]) || 12;
+        const thresh = fs * 0.6;
+        let group = lineGroups.find(g => Math.abs(g.y - y) <= thresh);
+        if (!group) { group = { y, items: [] }; lineGroups.push(group); }
+        group.items.push(item);
+    }
+    lineGroups.sort((a, b) => b.y - a.y); // top to bottom
+
+    // Build text from a group of items, returns {text, charXMap}
+    function buildGroupText(group) {
+        const sorted = [...group.items].sort((a, b) => a.transform[4] - b.transform[4]);
+        let result = '', charXMap = [], lastX = null, lastW = 0;
+        for (const item of sorted) {
+            const x = item.transform[4];
+            const fs = Math.abs(item.transform[0]) || 12;
+            const spW = fs * 0.35;
+            if (lastX !== null) {
+                const gap = x - (lastX + lastW);
+                if (gap > spW * 0.4) {
+                    const n = Math.max(1, Math.round(gap / spW));
+                    for (let s = 0; s < n; s++) charXMap.push(lastX + lastW + s * spW);
+                    result += ' '.repeat(n);
                 }
             }
-
-            lineText += item.str;
+            const charW = item.width && item.str.length > 0 ? item.width / item.str.length : (Math.abs(item.transform[0]) || 12) * 0.6;
+            for (let c = 0; c < item.str.length; c++) charXMap.push(x + c * charW);
+            result += item.str;
             lastX = x;
-            lastWidth = item.width || (item.str.length * fontSize * 0.6);
-            lastFontSize = fontSize;
-            lastY = y;
+            lastW = item.width || item.str.length * (Math.abs(item.transform[0]) || 12) * 0.6;
         }
-        if (lineText) text += lineText + '\n';
-        text += '\n';
+        return { text: result, charXMap };
     }
-    return postProcessPDFText(text);
+
+    // Find char index in lyric line closest to given X
+    function xToCharIdx(charXMap, targetX) {
+        if (!charXMap.length) return 0;
+        let best = 0, bestD = Infinity;
+        for (let i = 0; i < charXMap.length; i++) {
+            const d = Math.abs(charXMap[i] - targetX);
+            if (d < bestD) { bestD = d; best = i; }
+        }
+        return best;
+    }
+
+    // Build ChordPro by inserting Nash chords at X-mapped positions in lyric
+    function mergeByX(chordGroup, lyricGroup) {
+        // Build charXMap from RAW lyric (before dots fix) so positions stay accurate
+        const { text: rawLyric, charXMap } = buildGroupText(lyricGroup);
+        if (!charXMap.length) return rawLyric;
+
+        const chordItems = [...chordGroup.items].sort((a, b) => a.transform[4] - b.transform[4]);
+        const inserts = [];
+
+        for (const item of chordItems) {
+            const itemX = item.transform[4];
+            const fs = Math.abs(item.transform[0]) || 12;
+            const rawStr = item.str.replace(/\./g, ' ').replace(/\s+/g, ' ').trim();
+            const itemW = item.width || rawStr.length * fs * 0.6;
+            const charW = rawStr.length > 0 ? itemW / rawStr.length : fs * 0.6;
+            const tokens = rawStr.split(' ').filter(t => t);
+            let offset = 0;
+            for (const tok of tokens) {
+                if (NASH_TOKEN_RE.test(tok)) {
+                    const tokX = itemX + offset * charW;
+                    inserts.push({ idx: xToCharIdx(charXMap, tokX), chord: tok });
+                }
+                offset += tok.length + 1;
+            }
+        }
+        if (!inserts.length) return rawLyric;
+        // Remove duplicate chords at same position
+        const seen = new Set();
+        const unique = inserts.filter(ins => {
+            const key = ins.idx + '|' + ins.chord;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+        unique.sort((a, b) => a.idx - b.idx);
+
+        // Build ChordPro using rawLyric (positions match charXMap)
+        let result = '', last = 0;
+        for (const { idx, chord } of unique) {
+            const pos = Math.max(last, idx);
+            result += rawLyric.substring(last, pos) + '[' + chord + ']';
+            last = pos;
+        }
+        result += rawLyric.substring(last);
+
+        // Apply dots fix AFTER merging
+        return result
+            .replace(/([a-zA-ZÀ-ÿ'\u00C0-\u017E])\.\[/g, '$1 [')         // letter.[chord]
+            .replace(/\]\.([a-zA-ZÀ-ÿ'\u00C0-\u017E])/g, '] $1')          // [chord].letter
+            .replace(/([a-zA-ZÀ-ÿ'\u00C0-\u017E])\.([a-zA-ZÀ-ÿ'\u00C0-\u017E])/g, '$1 $2') // letter.letter
+            .replace(/^\.+\s*/, '');
+    }
+
+    function isSectionHeader(line) {
+        return /^(VERSE|CHORUS|BRIDGE|TAG|INSTRUMENTAL|INTRO|OUTRO|PRE.?CHORUS|VERSET|REFRAIN|PONT|CODA)\b/i.test(line.trim());
+    }
+
+    // Process line groups
+    let out = '';
+    let i = 0;
+    while (i < lineGroups.length) {
+        const group = lineGroups[i];
+        const { text: rawText } = buildGroupText(group);
+        const cleaned = postProcessPDFText(rawText);
+
+        if (i + 1 < lineGroups.length) {
+            const nextGroup = lineGroups[i + 1];
+            const { text: nextRaw } = buildGroupText(nextGroup);
+            const nextCleaned = postProcessPDFText(nextRaw);
+            if (isNashvilleLine(cleaned) && !isNashvilleLine(nextCleaned)
+                && !isChordLine(nextCleaned) && !isSectionHeader(nextCleaned)) {
+                out += mergeByX(group, nextGroup) + '\n';
+                i += 2;
+                continue;
+            }
+        }
+        out += cleaned + '\n';
+        i++;
+    }
+    return out;
 }
 
 // Nashville chord token regex for post-processing detection
