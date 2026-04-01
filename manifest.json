@@ -5,8 +5,8 @@
     "start_url": "./index.html",
     "display": "standalone",
     "orientation": "any",
-    "background_color": "#f0f2fa",
-    "theme_color": "#7c6ef0",
+    "background_color": "#eeeaff",
+    "theme_color": "#5b3ff8",
     "icons": [
         {
             "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%231a1a2e' width='100' height='100' rx='20'/><text y='.9em' font-size='70' x='15'>🎵</text></svg>",
