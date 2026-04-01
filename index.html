@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#4f00ff">
+    <meta name="theme-color" content="#7c3aed">
     <title>SongBook</title>
     <link rel="manifest" href="manifest.json">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -23,20 +23,22 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <style>
         :root {
-            --bg-primary: #ddd6fe;
+            --bg-primary: #f4f4f8;
             --bg-secondary: #ffffff;
             --bg-card: #ffffff;
-            --bg-input: #ede9ff;
-            --text-primary: #13122a;
-            --text-secondary: #5a5478;
-            --accent: #4f00ff;
-            --accent-hover: #3d00cc;
-            --accent2: #d4cbff;
-            --chord-color: #ff1744;
-            --success: #00c853;
-            --warning: #ff9100;
-            --border: rgba(79,0,255,0.13);
-            --shadow: 0 2px 14px rgba(79,0,255,0.13);
+            --bg-input: #f0f0f6;
+            --text-primary: #18172e;
+            --text-secondary: #6b6a80;
+            --accent: #7c3aed;
+            --accent-hover: #6d28d9;
+            --accent2: #ede9fe;
+            --grad: linear-gradient(135deg, #7c3aed 0%, #c026d3 60%, #f43f5e 100%);
+            --grad-hover: linear-gradient(135deg, #6d28d9 0%, #a21caf 60%, #e11d48 100%);
+            --chord-color: #e11d48;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --border: rgba(124,58,237,0.12);
+            --shadow: 0 2px 16px rgba(124,58,237,0.10);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -52,28 +54,32 @@
         /* ====== NAV BAR ====== */
         .navbar {
             position: fixed; top: 0; left: 0; right: 0;
-            height: 56px;
+            height: 60px;
             background: #ffffff;
-            border-bottom: 1px solid rgba(91,63,248,0.15);
-            box-shadow: 0 1px 16px rgba(91,63,248,0.10);
+            border-bottom: 1px solid rgba(124,58,237,0.10);
+            box-shadow: 0 2px 20px rgba(124,58,237,0.08);
             display: flex; align-items: center;
-            padding: 0 16px;
+            padding: 0 20px;
             z-index: 100;
             gap: 12px;
         }
-        .navbar .logo { font-size: 1.3em; font-weight: 700; display: flex; align-items: center; gap: 10px; }
-        .navbar .logo span { color: var(--accent); }
-        .nav-tabs {
-            display: flex; gap: 4px; margin-left: auto;
+        .navbar .logo {
+            font-size: 1.35em; font-weight: 800;
+            display: flex; align-items: center; gap: 10px;
+            background: var(--grad);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
+        .navbar .logo span { background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .nav-tabs { display: flex; gap: 4px; margin-left: auto; }
         .nav-tab {
-            padding: 8px 16px; border-radius: 8px;
+            padding: 8px 18px; border-radius: 20px;
             background: transparent; border: none;
             color: var(--text-secondary); cursor: pointer;
-            font-size: 0.9em; transition: all 0.2s;
+            font-size: 0.9em; font-weight: 600; transition: all 0.2s;
         }
-        .nav-tab:hover { background: var(--bg-card); color: var(--text-primary); }
-        .nav-tab.active { background: var(--accent); color: white; }
+        .nav-tab:hover { background: var(--accent2); color: var(--accent); }
+        .nav-tab.active { background: var(--grad); color: white; }
         .nav-tab .tab-icon { display: none; }
 
         @media (max-width: 600px) {
@@ -94,76 +100,78 @@
             display: flex; gap: 8px; margin-bottom: 16px;
         }
         .search-bar input {
-            flex: 1; padding: 12px 16px; border-radius: 10px;
-            background: var(--bg-input); border: 1px solid var(--border);
+            flex: 1; padding: 12px 18px; border-radius: 24px;
+            background: white; border: 1.5px solid rgba(124,58,237,0.15);
             color: var(--text-primary); font-size: 1em;
-            outline: none;
+            outline: none; box-shadow: 0 2px 8px rgba(124,58,237,0.06);
+            font-family: 'Nunito', sans-serif;
         }
-        .search-bar input:focus { border-color: var(--accent); }
+        .search-bar input:focus { border-color: var(--accent); box-shadow: 0 2px 12px rgba(124,58,237,0.18); }
 
         .btn {
-            padding: 10px 20px; border-radius: 10px; border: none;
-            cursor: pointer; font-size: 0.95em; font-weight: 600;
+            padding: 10px 22px; border-radius: 24px; border: none;
+            cursor: pointer; font-size: 0.95em; font-weight: 700;
             transition: all 0.2s; display: inline-flex;
-            align-items: center; gap: 6px;
+            align-items: center; gap: 6px; letter-spacing: 0.2px;
         }
-        .btn-primary { background: var(--accent); color: white; }
-        .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); }
-        .btn-secondary { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border); }
-        .btn-secondary:hover { background: var(--accent2); }
-        .btn-danger { background: #c0392b; color: white; }
-        .btn-danger:hover { background: #e74c3c; }
-        .btn-sm { padding: 6px 12px; font-size: 0.85em; }
+        .btn-primary { background: var(--grad); color: white; box-shadow: 0 4px 14px rgba(124,58,237,0.35); }
+        .btn-primary:hover { background: var(--grad-hover); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(124,58,237,0.45); }
+        .btn-secondary { background: #fff; color: var(--accent); border: 1.5px solid var(--border); }
+        .btn-secondary:hover { background: var(--accent2); border-color: var(--accent); }
+        .btn-danger { background: linear-gradient(135deg, #e11d48, #be123c); color: white; box-shadow: 0 4px 14px rgba(225,29,72,0.3); }
+        .btn-danger:hover { transform: translateY(-1px); }
+        .btn-sm { padding: 6px 14px; font-size: 0.85em; }
         .btn-icon {
             width: 40px; height: 40px; padding: 0;
             display: flex; align-items: center; justify-content: center;
-            border-radius: 10px; border: none; cursor: pointer;
-            background: var(--bg-card); color: var(--text-primary);
-            font-size: 1.2em; transition: all 0.2s;
+            border-radius: 12px; border: none; cursor: pointer;
+            background: var(--accent2); color: var(--accent);
+            font-size: 1.1em; transition: all 0.2s;
         }
-        .btn-icon:hover { background: var(--accent); }
+        .btn-icon:hover { background: var(--grad); color: white; }
 
-        .song-list { display: flex; flex-direction: column; gap: 8px; }
+        .song-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
         .song-card {
-            background: #ffffff; border-radius: 14px;
-            padding: 16px; cursor: pointer;
-            border: 1px solid rgba(91,63,248,0.14);
-            box-shadow: 0 2px 8px rgba(91,63,248,0.07);
+            background: #ffffff; border-radius: 16px;
+            padding: 18px 16px; cursor: pointer;
+            border: 1.5px solid rgba(124,58,237,0.10);
+            box-shadow: 0 2px 10px rgba(124,58,237,0.06);
             transition: all 0.2s;
             display: flex; align-items: center; gap: 12px;
         }
-        .song-card:hover { border-color: var(--accent); box-shadow: 0 4px 16px rgba(91,63,248,0.18); transform: translateY(-1px); }
-        .song-card .song-info { flex: 1; }
-        .song-card .song-title { font-weight: 600; font-size: 1.05em; }
-        .song-card .song-meta { color: var(--text-secondary); font-size: 0.85em; margin-top: 4px; }
+        .song-card:hover { border-color: var(--accent); box-shadow: 0 6px 24px rgba(124,58,237,0.18); transform: translateY(-2px); }
+        .song-card .song-icon {
+            width: 42px; height: 42px; border-radius: 12px; flex-shrink: 0;
+            background: var(--grad); display: flex; align-items: center; justify-content: center;
+            font-size: 1.2em; color: white;
+        }
+        .song-card .song-info { flex: 1; min-width: 0; }
+        .song-card .song-title { font-weight: 700; font-size: 0.98em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .song-card .song-meta { color: var(--text-secondary); font-size: 0.82em; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .song-card .song-key {
-            background: var(--accent); color: white;
-            padding: 4px 10px; border-radius: 6px; font-weight: 700;
-            font-size: 0.9em; min-width: 36px; text-align: center;
+            background: var(--grad); color: white;
+            padding: 4px 10px; border-radius: 20px; font-weight: 800;
+            font-size: 0.85em; min-width: 32px; text-align: center; flex-shrink: 0;
         }
-        .song-card .song-actions {
-            display: flex; gap: 4px;
-        }
+        .song-card .song-actions { display: flex; gap: 4px; flex-shrink: 0; }
         .song-card .song-actions button {
             background: var(--accent2); border: none; color: var(--accent);
-            cursor: pointer; padding: 6px 10px; border-radius: 8px;
-            font-size: 1em; transition: 0.2s; font-weight: 700;
+            cursor: pointer; padding: 6px 9px; border-radius: 10px;
+            font-size: 0.95em; transition: 0.2s; font-weight: 700;
         }
-        .song-card .song-actions button:hover { background: var(--accent); color: white; }
-        .song-card .song-actions button.btn-delete {
-            background: #ffe5e8; color: #ff1744;
-        }
-        .song-card .song-actions button.btn-delete:hover { background: #ff1744; color: white; }
+        .song-card .song-actions button:hover { background: var(--grad); color: white; }
+        .song-card .song-actions button.btn-delete { background: #fff0f3; color: #e11d48; }
+        .song-card .song-actions button.btn-delete:hover { background: linear-gradient(135deg, #e11d48, #be123c); color: white; }
 
         .tags-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
         .tag {
             padding: 2px 10px; border-radius: 4px; font-size: 0.75em;
             font-weight: 600; letter-spacing: 0.3px;
         }
-        .tag-celebration { background: #ffd600; color: #5c3800; border: none; }
-        .tag-combat { background: #ff1744; color: #fff; border: none; }
-        .tag-louange { background: #00c853; color: #fff; border: none; }
-        .tag-adoration { background: #651fff; color: #fff; border: none; }
+        .tag-celebration { background: linear-gradient(135deg,#f59e0b,#ef4444); color: white; border: none; }
+        .tag-combat { background: linear-gradient(135deg,#f43f5e,#be123c); color: white; border: none; }
+        .tag-louange { background: linear-gradient(135deg,#10b981,#0891b2); color: white; border: none; }
+        .tag-adoration { background: var(--grad); color: white; border: none; }
 
         .tag-selector { display: flex; gap: 8px; flex-wrap: wrap; }
         .tag-toggle {
@@ -181,22 +189,21 @@
         .tag-toggle[data-tag="Adoration"] { color: #651fff; border-color: #651fff; }
         .tag-toggle[data-tag="Adoration"].active { background: #651fff; border-color: #651fff; color: white; }
 
-        .filter-bar { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+        .filter-bar { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
         .filter-btn {
-            padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border);
-            background: transparent; cursor: pointer; font-size: 0.82em;
-            font-weight: 600; transition: all 0.2s; color: var(--text-secondary);
+            padding: 6px 16px; border-radius: 20px; border: 1.5px solid rgba(124,58,237,0.15);
+            background: white; cursor: pointer; font-size: 0.83em;
+            font-weight: 700; transition: all 0.2s; color: var(--text-secondary);
         }
-        .filter-btn.active { color: white; }
-        .filter-btn[data-filter="all"].active { background: var(--accent); border-color: var(--accent); color: white; }
-        .filter-btn[data-filter="Célébration"] { color: #e65100; border-color: #ffd600; }
-        .filter-btn[data-filter="Célébration"].active { background: #ffd600; border-color: #ffd600; color: #5c3800; }
-        .filter-btn[data-filter="Combat"] { color: #ff1744; border-color: #ff1744; }
-        .filter-btn[data-filter="Combat"].active { background: #ff1744; border-color: #ff1744; color: white; }
-        .filter-btn[data-filter="Louange"] { color: #00c853; border-color: #00c853; }
-        .filter-btn[data-filter="Louange"].active { background: #00c853; border-color: #00c853; color: white; }
-        .filter-btn[data-filter="Adoration"] { color: #651fff; border-color: #651fff; }
-        .filter-btn[data-filter="Adoration"].active { background: #651fff; border-color: #651fff; color: white; }
+        .filter-btn[data-filter="all"].active { background: var(--grad); border-color: transparent; color: white; box-shadow: 0 3px 12px rgba(124,58,237,0.3); }
+        .filter-btn[data-filter="Célébration"] { color: #b45309; border-color: #fbbf24; }
+        .filter-btn[data-filter="Célébration"].active { background: linear-gradient(135deg,#f59e0b,#ef4444); border-color: transparent; color: white; }
+        .filter-btn[data-filter="Combat"] { color: #e11d48; border-color: #fda4af; }
+        .filter-btn[data-filter="Combat"].active { background: linear-gradient(135deg,#f43f5e,#be123c); border-color: transparent; color: white; }
+        .filter-btn[data-filter="Louange"] { color: #059669; border-color: #6ee7b7; }
+        .filter-btn[data-filter="Louange"].active { background: linear-gradient(135deg,#10b981,#0891b2); border-color: transparent; color: white; }
+        .filter-btn[data-filter="Adoration"] { color: #7c3aed; border-color: #c4b5fd; }
+        .filter-btn[data-filter="Adoration"].active { background: var(--grad); border-color: transparent; color: white; }
 
         .empty-state {
             text-align: center; padding: 60px 20px;
@@ -263,11 +270,13 @@
             margin-bottom: 10px; flex-wrap: wrap;
         }
         .partition-header .back-btn {
-            background: var(--bg-card); border: none; color: var(--text-primary);
-            width: 40px; height: 40px; border-radius: 10px;
-            cursor: pointer; font-size: 1.2em; display: flex;
+            background: var(--accent2); border: none; color: var(--accent);
+            width: 38px; height: 38px; border-radius: 12px;
+            cursor: pointer; font-size: 1.1em; display: flex;
             align-items: center; justify-content: center;
+            font-weight: 700; transition: 0.2s; flex-shrink: 0;
         }
+        .partition-header .back-btn:hover { background: var(--grad); color: white; }
         .partition-header h2 { flex: 1; font-size: 1.3em; }
         .partition-controls {
             display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
@@ -282,10 +291,12 @@
             cursor: pointer; font-size: 1.1em; font-weight: 700;
             transition: 0.2s;
         }
-        .transpose-controls button:hover { background: var(--accent); }
+        .transpose-controls button:hover { background: var(--grad); color: white; }
         .transpose-controls .key-display {
-            min-width: 40px; text-align: center; font-weight: 700;
-            color: var(--accent); font-size: 1.1em;
+            min-width: 40px; text-align: center; font-weight: 800;
+            background: var(--grad); -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent; background-clip: text;
+            font-size: 1.1em;
         }
 
         .font-controls {
@@ -1441,15 +1452,16 @@ function renderSongList() {
 
     list.innerHTML = filtered.map(([id, s]) => `
         <div class="song-card" onclick="viewSong('${id}')">
+            <div class="song-icon">🎵</div>
             <div class="song-info">
                 <div class="song-title">${escapeHtml(s.title || 'Sans titre')}</div>
-                <div class="song-meta">${escapeHtml(s.artist || '')}${s.capo ? ' | Capo ' + s.capo : ''}</div>
+                <div class="song-meta">${escapeHtml(s.artist || '')}${s.capo ? ' · Capo ' + s.capo : ''}</div>
                 ${s.tags && s.tags.length ? `<div class="tags-row">${s.tags.map(t => `<span class="tag tag-${TAG_COLORS[t] || ''}">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
             </div>
             <span class="song-key">${escapeHtml(s.key || '?')}</span>
             <div class="song-actions">
-                <button onclick="event.stopPropagation(); editSong('${id}')" title="Modifier">&#9998;</button>
-                <button class="btn-delete" onclick="event.stopPropagation(); deleteSong('${id}', '${escapeHtml(s.title || 'ce chant')}')" title="Supprimer">&#128465;</button>
+                <button onclick="event.stopPropagation(); editSong('${id}')" title="Modifier">✏️</button>
+                <button class="btn-delete" onclick="event.stopPropagation(); deleteSong('${id}', '${escapeHtml(s.title || 'ce chant')}')" title="Supprimer">🗑️</button>
             </div>
         </div>
     `).join('');
@@ -2159,9 +2171,25 @@ function renderPartition() {
         }
     }
 
-    // Get active version content
+    // Get active version content, strip title/meta lines from top if present
     const activeVersion = versions[currentVersionIndex] || versions[0];
-    const content = activeVersion ? activeVersion.content : (s.content || '');
+    let content = activeVersion ? activeVersion.content : (s.content || '');
+    // Strip leading lines that match title, artist, or copyright/metadata
+    const titleNorm = (s.title || '').trim().toLowerCase();
+    const artistNorm = (s.artist || '').trim().toLowerCase();
+    const contentLines = content.split('\n');
+    while (contentLines.length > 0) {
+        const l = contentLines[0].trim();
+        const lNorm = l.toLowerCase().replace(/[^a-z0-9\u00c0-\u017e]/g, ' ').replace(/\s+/g, ' ').trim();
+        const tNorm = titleNorm.replace(/[^a-z0-9\u00c0-\u017e]/g, ' ').replace(/\s+/g, ' ').trim();
+        const aNorm = artistNorm.replace(/[^a-z0-9\u00c0-\u017e]/g, ' ').replace(/\s+/g, ' ').trim();
+        // Strip title if first 4 chars match (tolerates typos/caps)
+        const isTitle = tNorm.length >= 4 && lNorm.slice(0,4) === tNorm.slice(0,4);
+        const isArtist = aNorm.length >= 4 && lNorm.includes(aNorm.slice(0,6));
+        const isMeta = /^(paroles|musique|©|copyright|\(c\)|words|music|arr\.|capo)/i.test(l);
+        if (isTitle || isArtist || isMeta || l === '') { contentLines.shift(); } else break;
+    }
+    content = contentLines.join('\n');
 
     // Current key display
     const origKey = s.key || 'C';
@@ -2568,7 +2596,7 @@ if ('serviceWorker' in navigator) {
 loadData();
 </script>
 <div style="position:fixed;bottom:6px;right:10px;font-size:13px;color:rgba(79,0,255,0.45);font-family:'Nunito',sans-serif;font-weight:700;pointer-events:none;z-index:1">
-  Modifié le 01/04/2026 à 16:41 (Paris)
+  Modifié le 01/04/2026 à 16:52 (Paris)
 </div>
 </body>
 </html>
