@@ -657,7 +657,7 @@
 
         <div class="editor-actions">
             <button class="btn btn-secondary" onclick="showLibrary()">Annuler</button>
-            <button class="btn btn-danger" id="deleteBtn" style="display:none;" onclick="deleteSong()">Supprimer</button>
+            <button class="btn btn-danger" id="deleteBtn" style="display:none;" onclick="deleteSongFromEditor()">Supprimer</button>
             <button class="btn btn-primary" onclick="saveSong()">Sauvegarder</button>
         </div>
     </div>
@@ -1627,7 +1627,7 @@ function saveSong() {
     showLibrary();
 }
 
-function deleteSong() {
+function deleteSongFromEditor() {
     if (!currentEditId) return;
     if (!confirm('Supprimer ce chant ?')) return;
     db.ref('songbook/songs/' + currentEditId).remove();
